@@ -1,0 +1,15 @@
+{
+  "name": "こよみ - 日本の暦と季節",
+  "short_name": "こよみ",
+  "description": "旧暦・月齢・二十四節気・七十二候など、日本の暦と季節の便りを毎日届けます。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F3EA",
+  "theme_color": "#1F3350",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

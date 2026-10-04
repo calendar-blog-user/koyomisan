@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>こよみ - 日本の暦と季節の便り</title>
+<meta name="description" content="旧暦・月齢・二十四節気・七十二候など、日本の暦と季節の便りを毎日届けます。">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F3350">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1F3350;
+    --paper: #F7F3EA;
+    --paper-deep: #EFE8D8;
+    --accent: #C4622D;
+    --line: rgba(31, 51, 80, 0.18);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans JP", sans-serif;
+    line-height: 1.9;
+    -webkit-font-smoothing: antialiased;
+  }
+  .scroll {
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 4.5rem 1.75rem 5rem;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .kanji-mark {
+    writing-mode: vertical-rl;
+    font-family: "Shippori Mincho", serif;
+    font-size: 1.05rem;
+    letter-spacing: 0.4em;
+    color: var(--accent);
+    margin-bottom: 2.25rem;
+  }
+  h1 {
+    font-family: "Shippori Mincho", serif;
+    font-weight: 700;
+    font-size: 2.6rem;
+    letter-spacing: 0.08em;
+    margin: 0 0 0.75rem;
+    text-align: center;
+  }
+  .lede {
+    text-align: center;
+    font-size: 0.98rem;
+    color: rgba(31, 51, 80, 0.78);
+    max-width: 24rem;
+    margin: 0 0 3rem;
+  }
+  .divider {
+    width: 1px;
+    height: 2.5rem;
+    background: var(--line);
+    margin-bottom: 3rem;
+  }
+  .today-card {
+    width: 100%;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1.75rem 1.5rem;
+    margin-bottom: 3rem;
+  }
+  .today-card .label {
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    color: rgba(31, 51, 80, 0.6);
+    margin-bottom: 0.6rem;
+  }
+  .today-card .sekki {
+    font-family: "Shippori Mincho", serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.4rem;
+  }
+  .today-card .flow {
+    font-size: 0.9rem;
+    color: rgba(31, 51, 80, 0.85);
+  }
+  .today-meta {
+    font-size: 0.82rem;
+    color: rgba(31, 51, 80, 0.65);
+    margin-bottom: 0.9rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+  }
+  .reading {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  .reading section {
+    padding: 2.1rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .reading section:first-child { border-top: none; }
+  .reading .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+  }
+  .reading .section-emoji { font-size: 1.05rem; }
+  .reading h3 {
+    font-family: "Shippori Mincho", serif;
+    font-weight: 500;
+    font-size: 1.02rem;
+    margin: 0;
+    letter-spacing: 0.03em;
+  }
+  .reading p {
+    font-size: 0.92rem;
+    color: rgba(31, 51, 80, 0.88);
+    margin: 0 0 0.7rem;
+  }
+  .reading .sub-label {
+    font-size: 0.78rem;
+    color: rgba(31, 51, 80, 0.55);
+    margin: 0.9rem 0 0.4rem;
+  }
+  .reading ul {
+    margin: 0 0 0.7rem;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    color: rgba(31, 51, 80, 0.82);
+  }
+  .reading li { margin-bottom: 0.4rem; }
+  .reading .catchphrase {
+    font-family: "Shippori Mincho", serif;
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 0.8rem;
+  }
+  .reading .memorial-name {
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .cta {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  button.primary {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 2px;
+    font-family: "Noto Sans JP", sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+  button.primary:active { opacity: 0.8; }
+  button.primary:disabled { opacity: 0.45; cursor: default; }
+  .status {
+    font-size: 0.85rem;
+    color: rgba(31, 51, 80, 0.7);
+    text-align: center;
+    min-height: 1.4em;
+  }
+  .howto {
+    margin-top: 3.5rem;
+    width: 100%;
+    border-top: 1px solid var(--line);
+    padding-top: 2rem;
+  }
+  .howto h2 {
+    font-family: "Shippori Mincho", serif;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0 0 1rem;
+  }
+  .howto ol {
+    margin: 0;
+    padding-left: 1.3rem;
+    font-size: 0.88rem;
+    color: rgba(31, 51, 80, 0.82);
+  }
+  .howto li { margin-bottom: 0.6rem; }
+  footer {
+    margin-top: 3rem;
+    font-size: 0.75rem;
+    color: rgba(31, 51, 80, 0.5);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <main class="scroll">
+    <div class="kanji-mark">暦</div>
+    <h1>こよみ</h1>
+    <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、毎日ひとつ届けます。</p>
+
+    <div class="today-card" id="today-card">
+      <div class="label">今日の暦</div>
+      <div class="today-meta" id="today-meta"></div>
+      <div class="sekki" id="today-sekki">読み込み中…</div>
+      <div class="flow" id="today-flow"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cta">
+      <button class="primary" id="subscribe-btn">通知を受け取る</button>
+      <p class="status" id="status"></p>
+    </div>
+
+    <article class="reading" id="reading"></article>
+
+    <div class="divider"></div>
+
+    <section class="howto">
+      <h2>使いかた</h2>
+      <ol>
+        <li>上のボタンから通知を許可すると、毎朝この端末に季節の便りが届きます。</li>
+        <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
+        <li>アカウント登録は必要ありません。通知が不要になったら、端末の通知設定からいつでもオフにできます。</li>
+      </ol>
+    </section>
+
+    <footer>登録なし・無料でご利用いただけます</footer>
+  </main>
+
+  <script src="firebase-config.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("subscribe-btn");
+
+    const app = initializeApp(window.firebaseConfig);
+    const db = getFirestore(app);
+
+    const esc = (s) => (s ?? "").toString()
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    function ul(items) {
+      if (!items || !items.length) return "";
+      return `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
+    }
+
+    function renderArticle(data) {
+      const memorialsHtml = (data.memorials && data.memorials.length)
+        ? `<p>本日にちなむ記念日：</p>` + data.memorials.map((m) =>
+            `<p><span class="memorial-name">■ ${esc(m.name)}</span><br>${esc(m.origin)}</p>`
+          ).join("")
+        : `<p>この日に該当する記念日は未収録です。</p>`;
+
+      const otherPlants = (data.other_plants || [])
+        .map((p) => `${esc(p.name)}（${esc(p.note)}）`);
+
+      const craftHtml = (data.craft || [])
+        .map((c) => `${esc(c.name)}：${esc(c.note)}`);
+
+      const sections = [
+        ["☀️", "季節の移ろい", `
+          <p class="catchphrase">二十四節気：${esc(data.sekki_name)}（${esc(data.sekki_yomi)}）</p>
+          <p>${esc(data.sekki_description)}</p>
+          <p class="catchphrase">七十二候：${esc(data.kou_name)}（${esc(data.kou_yomi)}）― ${esc(data.kou_label)}</p>
+          <p>${esc(data.season_flow)}</p>
+          <p class="sub-label">自然の変化としては</p>
+          ${ul(data.nature_points)}`],
+        ["🚜", "農事歴（農業暦）", `
+          <p class="catchphrase">この時期は「${esc(data.agri_catchphrase)}」</p>
+          ${ul(data.agri_bullets)}
+          <p>${esc(data.agri_note)}</p>`],
+        ["🏡", "日本の風習・しきたり", `
+          <p>${esc(data.customs_intro)}</p>
+          ${ul(data.customs_bullets)}`],
+        ["🎌", "日本の記念日と祝日", memorialsHtml],
+        ["📚", "日本の神話・伝説", `<p>${esc(data.mythology)}</p>`],
+        ["💡", "暦にまつわる文化雑学", `<p>${esc(data.trivia)}</p>`],
+        ["🍁", "自然と気象情報", ul(data.nature_points)],
+        ["🍴", "旬の食材・行事食", `
+          <p class="sub-label">旬を迎える食材</p>
+          ${ul([...(data.food_veg || []), ...(data.food_fruit || []), ...(data.food_seafood || [])])}
+          <p>${esc(data.food_note)}</p>
+          <p class="sub-label">行事食</p>
+          ${ul(data.event_food)}`],
+        ["🌸", "季節の草木と花言葉", `
+          <p class="catchphrase">${esc(data.flower_name)}（${esc(data.flower_yomi)}）</p>
+          <p>花言葉「${esc(data.flower_meaning)}」。${esc(data.flower_note)}</p>
+          <p class="sub-label">その他の植物</p>
+          ${ul(otherPlants)}`],
+        ["🌕", "月や星の暦・天文情報", `
+          <p>${esc(data.astronomy_moon)}</p>
+          <p class="sub-label">星空では</p>
+          ${ul(data.astronomy_stars)}`],
+        ["🎨", "伝統工芸・民芸品", ul(craftHtml)],
+        ["📖", "祭事の背景・神話伝説", `<p>${esc(data.festival_background)}</p>`],
+        ["🎼", "伝統芸能", `<p>${esc(data.performing_art)}</p>`],
+      ];
+
+      return sections.map(([emoji, title, body]) => `
+        <section>
+          <div class="section-head">
+            <span class="section-emoji">${emoji}</span>
+            <h3>${title}</h3>
+          </div>
+          ${body}
+        </section>
+      `).join("");
+    }
+
+    // 今日の暦を取得し、上部カードと全セクションの読み物の両方に反映する
+    fetch("today.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        document.getElementById("today-meta").textContent =
+          `旧暦 ${data.kyureki}　月齢 ${data.moon_age}`;
+        document.getElementById("today-sekki").textContent =
+          `${data.sekki_name}（${data.sekki_yomi}）・${data.kou_name}（${data.kou_label}）`;
+        document.getElementById("today-flow").textContent = data.season_flow || "";
+        document.getElementById("reading").innerHTML = renderArticle(data);
+      })
+      .catch(() => {});
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      statusEl.textContent = "通知の許可を確認しています…";
+      try {
+        const supported = await isSupported();
+        if (!supported) {
+          statusEl.textContent = "お使いのブラウザは通知に対応していません。";
+          btn.disabled = false;
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          statusEl.textContent = "通知が許可されませんでした。ブラウザの設定からいつでも変更できます。";
+          btn.disabled = false;
+          return;
+        }
+        const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+        const messaging = getMessaging(app);
+        const token = await getToken(messaging, {
+          vapidKey: window.VAPID_KEY,
+          serviceWorkerRegistration: registration,
+        });
+        if (!token) {
+          statusEl.textContent = "通知登録用のトークンを取得できませんでした。";
+          btn.disabled = false;
+          return;
+        }
+        // トークンをFirestoreに書き込むだけ(読み取り・上書きはセキュリティルールで禁止)
+        await setDoc(doc(db, "subscribers", token), {
+          token,
+          registeredAt: serverTimestamp(),
+          ua: navigator.userAgent,
+        });
+        statusEl.textContent = "通知の登録が完了しました。毎朝、季節の便りが届きます。";
+        btn.textContent = "登録済みです";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "エラーが発生しました。時間をおいて再度お試しください。";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
