@@ -1,5 +1,6 @@
 {
-  "hosting": {"site": "【koyomi】",
+  "hosting": {
+    "site": "【koyomi】",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
