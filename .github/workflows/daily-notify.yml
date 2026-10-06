@@ -1,1 +1,34 @@
-   .github/workflows/daily-notify.yml
+name: Daily Koyomi Notification
+
+on:
+  schedule:
+    # 毎日JST7:00に実行(サイトの表示は毎日更新。プッシュ通知は七十二候が切り替わった日、または記念日がある日だけ送信される)
+    - cron: '0 22 * * *'
+  workflow_dispatch: {}  # 手動実行もできるようにしておく(テスト用)
+
+jobs:
+  notify-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate today.json and send push notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: python notify_fcm.py
+
+      - name: Deploy updated today.json to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          channelId: live
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
