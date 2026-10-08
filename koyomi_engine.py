@@ -138,6 +138,94 @@ def get_sekki_and_kou(target_date_jst):
     }
 
 
+# 旧暦の日にちごとの伝統的な月の呼び名(主要なもの。それ以外は満ち欠けの方向で補う)
+MOON_PHASE_NAMES = {
+    1: "新月", 2: "二日月", 3: "三日月",
+    7: "上弦の月", 8: "上弦の月",
+    10: "十日夜の月", 13: "十三夜月", 14: "小望月",
+    15: "満月", 16: "十六夜", 17: "立待月", 18: "居待月",
+    19: "寝待月", 20: "更待月",
+    22: "下弦の月", 23: "下弦の月", 26: "二十六夜月",
+    30: "晦日月",
+}
+
+
+def moon_phase_name(kyureki_day: int) -> str:
+    """旧暦の日にち(1-30)から、伝統的な月の呼び名を返す"""
+    if kyureki_day in MOON_PHASE_NAMES:
+        return MOON_PHASE_NAMES[kyureki_day]
+    if kyureki_day < 15:
+        return "満ちていく月"
+    return "欠けていく月"
+
+
+TOKYO_LAT = "35.6895"
+TOKYO_LON = "139.6917"
+
+DIRECTIONS_8 = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"]
+
+
+def _azimuth_to_direction(az_deg: float) -> str:
+    idx = int(((az_deg + 22.5) % 360) // 45)
+    return DIRECTIONS_8[idx]
+
+
+def moon_position_at(target_date_jst, hour=20, minute=0):
+    """指定した時刻(デフォルト20時 JST)における月の高度・方位を返す"""
+    obs = ephem.Observer()
+    obs.lat = TOKYO_LAT
+    obs.lon = TOKYO_LON
+    dt_utc = datetime(target_date_jst.year, target_date_jst.month, target_date_jst.day,
+                       hour, minute, 0, tzinfo=JST).astimezone(timezone.utc)
+    obs.date = dt_utc
+    moon = ephem.Moon(obs)
+    altitude_deg = math.degrees(float(moon.alt))
+    azimuth_deg = math.degrees(float(moon.az))
+    return altitude_deg, azimuth_deg
+
+
+def moon_position_description(target_date_jst) -> str:
+    """
+    その日の夜(20時 JST基準)に月がどの方角にどれくらいの高さで見えるかを
+    自然な日本語の一文で返す。地平線の下にある場合は、月の出/月の入りの
+    時刻を案内する文にする。
+    """
+    altitude_deg, azimuth_deg = moon_position_at(target_date_jst, hour=20)
+    direction = _azimuth_to_direction(azimuth_deg)
+
+    if altitude_deg > 50:
+        height_desc = "空高く"
+    elif altitude_deg > 20:
+        height_desc = "ほどよい高さに"
+    elif altitude_deg > 0:
+        height_desc = "低い位置に"
+    else:
+        height_desc = None
+
+    if height_desc:
+        return f"今夜20時頃には、{direction}の空の{height_desc}月が見えています。"
+
+    # 地平線の下にある場合は、月の出または月の入りの時刻を調べて案内する
+    obs = ephem.Observer()
+    obs.lat = TOKYO_LAT
+    obs.lon = TOKYO_LON
+    dt_utc = datetime(target_date_jst.year, target_date_jst.month, target_date_jst.day,
+                       0, 0, 0, tzinfo=JST).astimezone(timezone.utc)
+    obs.date = dt_utc
+    moon = ephem.Moon()
+    try:
+        next_rise = obs.next_rising(moon).datetime().replace(tzinfo=timezone.utc).astimezone(JST)
+        next_set = obs.next_setting(moon).datetime().replace(tzinfo=timezone.utc).astimezone(JST)
+        if next_rise.date() == target_date_jst and (next_set.date() != target_date_jst or next_rise < next_set):
+            return f"本日は{next_rise.strftime('%H時%M分')}頃に月の出を迎え、これから夜空に昇ってきます。"
+        elif next_set.date() == target_date_jst:
+            return f"本日は{next_set.strftime('%H時%M分')}頃に月の入りを迎え、夜更けには見えなくなります。"
+        else:
+            return "本日は日中に月が昇るため、夜にはすでに沈んでしまっている時間帯です。"
+    except Exception:
+        return "本日は月の出入りの時間帯により、夜空では見えにくくなっています。"
+
+
 def moon_age(target_date_jst):
     """月齢(前回新月からの経過日数)を返す。国立天文台の慣例に合わせ正午(12:00 JST)基準で算出"""
     dt_utc = datetime(target_date_jst.year, target_date_jst.month, target_date_jst.day,
@@ -182,18 +270,9 @@ def compute_kyuureki(target_date_jst):
     for i in range(len(new_moons) - 1):
         start = new_moon_to_jst_date(new_moons[i])
         end = new_moon_to_jst_date(new_moons[i + 1])
-        # この区間の途中で中気(30度刻み)を跨いだか確認
         start_lon = sun_ecliptic_longitude(datetime(start.year, start.month, start.day, tzinfo=JST).astimezone(timezone.utc))
         end_lon = sun_ecliptic_longitude(datetime(end.year, end.month, end.day, tzinfo=JST).astimezone(timezone.utc))
         chuuki_lon = None
-        lon_check = start_lon
-        d_check = start
-        while d_check < end:
-            lon_here = sun_ecliptic_longitude(datetime(d_check.year, d_check.month, d_check.day, tzinfo=JST).astimezone(timezone.utc))
-            if round(lon_here) % 30 == 0 or (int(lon_here // 30) != int(lon_check // 30)):
-                pass
-            d_check += timedelta(days=1)
-        # 簡易判定: start_lon と end_lon の間に 30度の倍数が含まれるか
         for chuuki_deg in CHUUKI_TO_MONTH:
             lo, hi = start_lon, end_lon
             if lo > hi:  # 360度をまたぐ場合
@@ -207,7 +286,6 @@ def compute_kyuureki(target_date_jst):
         months.append([start, end, chuuki_lon])
 
     # 月番号を割り当て(中気を含む月から番号を確定し、含まない月は閏月とする)
-    # まず基準となる月(中気を含む最初の月)を見つけ、そこから連番を振る
     labeled = []
     running_month = None
     for start, end, chuuki_lon in months:
@@ -237,8 +315,8 @@ if __name__ == "__main__":
     test_dates = [
         datetime(2026, 9, 18).date(),
         datetime(2026, 1, 1).date(),
-        datetime(2025, 1, 29).date(),   # 中国旧正月(参考)
-        datetime(2023, 3, 22).date(),   # 2023年は閏2月がある年
+        datetime(2025, 1, 29).date(),
+        datetime(2023, 3, 22).date(),
     ]
     for d in test_dates:
         sk = get_sekki_and_kou(d)
