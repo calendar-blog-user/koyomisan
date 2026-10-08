@@ -5,7 +5,7 @@
 import json
 import os
 from datetime import date
-from koyomi_engine import get_sekki_and_kou, moon_age, compute_kyuureki
+from koyomi_engine import get_sekki_and_kou, moon_age, compute_kyuureki, moon_phase_name, moon_position_description
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,6 +24,22 @@ def load_content_db(path=None):
             rec = json.loads(line)
             key = (rec["sekki"], rec["kou_label"], rec["kou_name"])
             db[key] = rec
+    return db
+
+
+def load_kyureki_month_db(path=None):
+    """旧暦月名(和風月名)とその解説を返す(月番号 -> {name, yomi, description})"""
+    path = path or os.path.join(SCRIPT_DIR, "kyureki_month_names.jsonl")
+    db = {}
+    if not os.path.exists(path):
+        return db
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            db[rec["month"]] = rec
     return db
 
 
@@ -59,7 +75,7 @@ def load_sekki_description_db(path=None):
     return db
 
 
-def render(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> str:
+def render(target_date: date, db, memorial_db=None, sekki_desc_db=None, kyureki_month_db=None) -> str:
     sk = get_sekki_and_kou(target_date)
     ma = moon_age(target_date)
     ky = compute_kyuureki(target_date)
@@ -70,12 +86,18 @@ def render(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> str:
 
     weekday = WEEKDAY_JP[target_date.weekday()]
     leap = "閏" if ky["is_leap_month"] else ""
+    phase_name = moon_phase_name(ky["kyureki_day"])
+    month_info = (kyureki_month_db or {}).get(ky["kyureki_month"], {})
 
     out = []
     out.append("📅 今日の暦情報")
     out.append(f"西暦：{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）")
-    out.append(f"旧暦：{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日")
+    out.append(f"旧暦：{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日（{phase_name}）")
     out.append(f"月齢：{ma}")
+    if month_info:
+        out.append(f"旧暦{leap}{ky['kyureki_month']}月は「{month_info['name']}（{month_info['yomi']}）」。{month_info['description']}")
+    out.append("")
+    out.append(c.get("climate_note", ""))
     out.append("")
     out.append("☀️ 季節の移ろい")
     out.append(f"二十四節気：{sk['sekki_name']}（{sk['sekki_yomi']}）")
@@ -116,7 +138,7 @@ def render(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> str:
     out.append(c["trivia"])
     out.append("")
     out.append("🍁 自然と気象情報")
-    for p in c["nature_points"]:
+    for p in c.get("weather_points", c["nature_points"]):
         out.append(f"・{p}")
     out.append("")
     out.append("🍴 旬の食材・行事食")
@@ -144,6 +166,7 @@ def render(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> str:
         out.append(f"・{p['name']}（{p['note']}）")
     out.append("")
     out.append("🌕 月や星の暦・天文情報")
+    out.append(moon_position_description(target_date))
     out.append(c["astronomy_moon"])
     out.append("")
     out.append("星空では：")
@@ -163,7 +186,7 @@ def render(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> str:
     return "\n".join(out)
 
 
-def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None) -> dict:
+def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None, kyureki_month_db=None) -> dict:
     """サイト表示・today.json用に、全セクションぶんの構造化データを返す"""
     sk = get_sekki_and_kou(target_date)
     ma = moon_age(target_date)
@@ -177,12 +200,20 @@ def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None) -
     leap = "閏" if ky["is_leap_month"] else ""
     memorials = (memorial_db or {}).get((target_date.month, target_date.day)) or []
     sekki_description = (sekki_desc_db or {}).get(sk["sekki_name"], "")
+    phase_name = moon_phase_name(ky["kyureki_day"])
+    month_info = (kyureki_month_db or {}).get(ky["kyureki_month"], {})
 
     return {
         "date": target_date.isoformat(),
         "weekday": weekday,
+        "gregorian_label": f"{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）",
         "kyureki": f"{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日",
+        "kyureki_month_name": month_info.get("name", ""),
+        "kyureki_month_yomi": month_info.get("yomi", ""),
+        "kyureki_month_description": month_info.get("description", ""),
+        "is_leap_month": ky["is_leap_month"],
         "moon_age": ma,
+        "moon_phase_name": phase_name,
         "sekki_name": sk["sekki_name"],
         "sekki_yomi": sk["sekki_yomi"],
         "sekki_description": sekki_description,
@@ -191,6 +222,8 @@ def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None) -
         "kou_label": c["kou_label"],
         "season_flow": c["season_flow"],
         "nature_points": c["nature_points"],
+        "climate_note": c.get("climate_note", ""),
+        "weather_points": c.get("weather_points", c["nature_points"]),
         "agri_catchphrase": c["agri_catchphrase"],
         "agri_bullets": c["agri_bullets"],
         "agri_note": c["agri_note"],
@@ -210,6 +243,7 @@ def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None) -
         "flower_note": c["flower_note"],
         "other_plants": c["other_plants"],
         "astronomy_moon": c["astronomy_moon"],
+        "moon_position_today": moon_position_description(target_date),
         "astronomy_stars": c["astronomy_stars"],
         "craft": c["craft"],
         "festival_background": c["festival_background"],
@@ -221,5 +255,11 @@ if __name__ == "__main__":
     db = load_content_db()
     mdb = load_memorial_db()
     sdb = load_sekki_description_db()
-    result = render(date(2026, 9, 18), db, mdb, sdb)
+    kmdb = load_kyureki_month_db()
+    result = render(date(2026, 9, 18), db, mdb, sdb, kmdb)
     print(result)
+    print("---")
+    full = get_full_data(date(2026, 9, 18), db, mdb, sdb, kmdb)
+    for k in ["gregorian_label", "kyureki", "moon_age", "moon_phase_name",
+              "kyureki_month_name", "kyureki_month_yomi", "kyureki_month_description"]:
+        print(f"{k}: {full[k]}")
