@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import firebase_admin
 from firebase_admin import credentials, firestore, messaging
 
-from render_koyomi import get_sekki_and_kou, load_content_db, load_memorial_db, load_sekki_description_db, get_full_data
+from render_koyomi import get_sekki_and_kou, load_content_db, load_memorial_db, load_sekki_description_db, load_kyureki_month_db, get_full_data
 
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
@@ -110,7 +110,8 @@ def main():
     db = load_content_db()
     mdb = load_memorial_db()
     sdb = load_sekki_description_db()
-    full_data = get_full_data(today, db, mdb, sdb)
+    kmdb = load_kyureki_month_db()
+    full_data = get_full_data(today, db, mdb, sdb, kmdb)
     memorials = full_data["memorials"]
 
     # サイト表示用のtoday.jsonは毎日更新する(通知の有無に関わらず、いつ開いても今日の内容が見える)
