@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>こよみ - 日本の暦と季節の便り</title>
+<title>こよみさん - 日本の暦と季節の便り</title>
 <meta name="description" content="旧暦・月齢・二十四節気・七十二候など、日本の暦と季節の便りを毎日届けます。">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1F3350">
@@ -88,6 +88,19 @@
   .today-card .flow {
     font-size: 0.9rem;
     color: rgba(31, 51, 80, 0.85);
+  }
+  .today-card .gregorian {
+    font-size: 0.8rem;
+    color: rgba(31, 51, 80, 0.6);
+    margin-bottom: 0.3rem;
+  }
+  .today-card .month-note {
+    font-size: 0.85rem;
+    color: rgba(31, 51, 80, 0.8);
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px dashed var(--line);
+    white-space: pre-line;
   }
   .today-meta {
     font-size: 0.82rem;
@@ -205,14 +218,16 @@
 <body>
   <main class="scroll">
     <div class="kanji-mark">暦</div>
-    <h1>こよみ</h1>
+    <h1>こよみさん</h1>
     <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、毎日ひとつ届けます。</p>
 
     <div class="today-card" id="today-card">
       <div class="label">今日の暦</div>
+      <div class="gregorian" id="today-gregorian"></div>
       <div class="today-meta" id="today-meta"></div>
       <div class="sekki" id="today-sekki">読み込み中…</div>
       <div class="flow" id="today-flow"></div>
+      <div class="month-note" id="today-month-note"></div>
     </div>
 
     <div class="divider"></div>
@@ -289,7 +304,7 @@
         ["🎌", "日本の記念日と祝日", memorialsHtml],
         ["📚", "日本の神話・伝説", `<p>${esc(data.mythology)}</p>`],
         ["💡", "暦にまつわる文化雑学", `<p>${esc(data.trivia)}</p>`],
-        ["🍁", "自然と気象情報", ul(data.nature_points)],
+        ["🍁", "自然と気象情報", ul(data.weather_points || data.nature_points)],
         ["🍴", "旬の食材・行事食", `
           <p class="sub-label">旬を迎える食材</p>
           ${ul([...(data.food_veg || []), ...(data.food_fruit || []), ...(data.food_seafood || [])])}
@@ -302,6 +317,7 @@
           <p class="sub-label">その他の植物</p>
           ${ul(otherPlants)}`],
         ["🌕", "月や星の暦・天文情報", `
+          <p>${esc(data.moon_position_today)}</p>
           <p>${esc(data.astronomy_moon)}</p>
           <p class="sub-label">星空では</p>
           ${ul(data.astronomy_stars)}`],
@@ -326,11 +342,19 @@
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data) return;
+        document.getElementById("today-gregorian").textContent =
+          `西暦 ${data.gregorian_label}`;
         document.getElementById("today-meta").textContent =
-          `旧暦 ${data.kyureki}　月齢 ${data.moon_age}`;
+          `旧暦 ${data.kyureki}（${data.moon_phase_name}）　月齢 ${data.moon_age}`;
         document.getElementById("today-sekki").textContent =
           `${data.sekki_name}（${data.sekki_yomi}）・${data.kou_name}（${data.kou_label}）`;
         document.getElementById("today-flow").textContent = data.season_flow || "";
+        if (data.kyureki_month_name) {
+          const monthNum = data.kyureki.match(/^\D*(\d+)/)?.[1] || "";
+          const monthLine = `旧暦${data.is_leap_month ? "閏" : ""}${monthNum}月は「${data.kyureki_month_name}（${data.kyureki_month_yomi}）」。${data.kyureki_month_description}`;
+          document.getElementById("today-month-note").textContent =
+            data.climate_note ? `${monthLine}\n\n${data.climate_note}` : monthLine;
+        }
         document.getElementById("reading").innerHTML = renderArticle(data);
       })
       .catch(() => {});
