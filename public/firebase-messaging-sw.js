@@ -4,36 +4,47 @@ importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-com
 importScripts("firebase-config.js");
 
 firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging();
 
-// バックグラウンド受信時の通知の見た目を指定する
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "こよみ";
-  const options = {
-    body: payload.notification?.body || "",
-    icon: "icon-192.png",
-    badge: "icon-192.png",
-  };
-  self.registration.showNotification(title, options);
-});
+// 通知の表示そのものはFCM(Firebase)が自動で行う。
+// サーバー(notify_fcm.py)がnotification付きで送っているため、ここで showNotification を
+// 重ねて呼ぶと同じ通知が2つ表示されてしまう。そのため onBackgroundMessage は設定しない。
+// (通知のタイトル・本文・アイコン・タップ時の遷移先は、すべて送信側で指定している)
+firebase.messaging();
 
-// PWAをホーム画面から開けるようにするための最低限のキャッシュ処理
-const CACHE_NAME = "koyomi-cache-v1";
+// ホーム画面に追加(インストール)できるようにするための最小限のキャッシュ処理。
+// 「ネットワーク優先」にして、オンラインの時は常に最新のページ・今日のデータを表示する。
+// (キャッシュ優先にすると、古いindex.htmlが固定されてしまうため)
+const CACHE_NAME = "koyomi-cache-v2";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(CORE_ASSETS.map((asset) => cache.add(asset)))
+    )
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok && new URL(event.request.url).origin === self.location.origin) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
