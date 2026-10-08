@@ -2,8 +2,9 @@
 毎日実行するスクリプト(不特定多数の利用者向け):
   1. 今日の日付で暦情報を生成(計算エンジン + コンテンツDB、LLM不使用)
   2. public/today.json を更新(サイトのプレビューカード表示用、毎日更新)
-  3. 七十二候が「切り替わった初日」だけ、Firestoreに登録されている購読者(FCMトークン)全員に
-     Firebase Cloud Messaging経由でプッシュ通知を送信する(約5日に1回、年間72回)
+  3. 七十二候が切り替わった初日、または記念日がある日だけ、Firestoreに登録されている購読者
+     (FCMトークン)全員にFirebase Cloud Messaging経由でプッシュ通知を送信する
+     (候の切り替わり約72回 + 記念日のみの日約60回 = 年間およそ132回)
 
 必要な環境変数:
   FIREBASE_SERVICE_ACCOUNT_JSON : Firebaseサービスアカウントの秘密鍵(JSON文字列そのもの)
@@ -12,7 +13,7 @@
 import json
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import firebase_admin
 from firebase_admin import credentials, firestore, messaging
@@ -20,6 +21,15 @@ from firebase_admin import credentials, firestore, messaging
 from render_koyomi import get_sekki_and_kou, load_content_db, load_memorial_db, load_sekki_description_db, load_kyureki_month_db, get_full_data
 
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+
+JST = timezone(timedelta(hours=9))
+
+
+def today_jst() -> date:
+    """日本時間の今日の日付を返す。
+    GitHub Actionsの実行環境はUTCで動いており、date.today()だと朝7時(JST)の実行時に
+    前日の日付になってしまうため、必ずJSTを明示して取得する。"""
+    return datetime.now(JST).date()
 
 
 def is_new_kou_day(target_date) -> bool:
@@ -106,7 +116,7 @@ def main():
     init_firebase()
     site_url = os.environ.get("SITE_URL", "/")
 
-    today = date.today()
+    today = today_jst()
     db = load_content_db()
     mdb = load_memorial_db()
     sdb = load_sekki_description_db()
