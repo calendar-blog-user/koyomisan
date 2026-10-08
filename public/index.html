@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>こよみさん - 日本の暦と季節の便り</title>
-<meta name="description" content="旧暦・月齢・二十四節気・七十二候など、日本の暦と季節の便りを毎日届けます。">
+<meta name="description" content="旧暦・月齢・二十四節気・七十二候など、日本の暦と季節の便りを、季節の移ろいに合わせてお届けします。">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1F3350">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -219,7 +219,7 @@
   <main class="scroll">
     <div class="kanji-mark">暦</div>
     <h1>こよみさん</h1>
-    <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、毎日ひとつ届けます。</p>
+    <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、季節の移ろいに合わせてお届けします。</p>
 
     <div class="today-card" id="today-card">
       <div class="label">今日の暦</div>
@@ -244,7 +244,7 @@
     <section class="howto">
       <h2>使いかた</h2>
       <ol>
-        <li>上のボタンから通知を許可すると、毎朝この端末に季節の便りが届きます。</li>
+        <li>上のボタンから通知を許可すると、七十二候が移り変わる日（約5日ごと）や記念日に、この端末へ季節の便りが届きます。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
         <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
         <li>アカウント登録は必要ありません。通知が不要になったら、端末の通知設定からいつでもオフにできます。</li>
       </ol>
@@ -392,7 +392,7 @@
           registeredAt: serverTimestamp(),
           ua: navigator.userAgent,
         });
-        statusEl.textContent = "通知の登録が完了しました。毎朝、季節の便りが届きます。";
+        statusEl.textContent = "通知の登録が完了しました。七十二候が移り変わる日や記念日に、季節の便りが届きます。";
         btn.textContent = "登録済みです";
       } catch (err) {
         console.error(err);
