@@ -1,10 +1,15 @@
 """
 毎日実行するスクリプト(不特定多数の利用者向け):
-  1. 今日の日付で暦情報を生成(計算エンジン + コンテンツDB、LLM不使用)
-  2. public/today.json を更新(サイトのプレビューカード表示用、毎日更新)
-  3. 七十二候が切り替わった初日、または記念日がある日だけ、Firestoreに登録されている購読者
-     (FCMトークン)全員にFirebase Cloud Messaging経由でプッシュ通知を送信する
-     (候の切り替わり約72回 + 記念日のみの日約60回 = 年間およそ132回)
+  1. 今日(日本時間)の暦情報を、全地点(政令指定都市＋東京)ぶん生成し、public/today.json を更新する(毎日)
+  2. 次の「通知のきっかけ」がある日だけ、購読者全員にFirebase Cloud Messaging経由で通知を送る。
+     通知には、購読者が選んだ都市の日の出・日の入り・月の出・月の入りを添える。
+       ・二十四節気・七十二候の切り替わり日
+       ・国民の祝日(振替休日・国民の休日を含む)
+       ・重要な祭日
+       ・主要な年中行事
+       ・記念日
+     (雑節・選日・六曜・天文トピックスは、サイトには表示するが通知のきっかけにはしない)
+     通知のタイトルは「今日は〇〇（区分）」の形で、何の日だから通知しているかが分かるようにする。
 
 必要な環境変数:
   FIREBASE_SERVICE_ACCOUNT_JSON : Firebaseサービスアカウントの秘密鍵(JSON文字列そのもの)
@@ -13,32 +18,24 @@
 import json
 import os
 import sys
+from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 import firebase_admin
 from firebase_admin import credentials, firestore, messaging
 
-from render_koyomi import get_sekki_and_kou, load_content_db, load_memorial_db, load_sekki_description_db, load_kyureki_month_db, get_full_data
+from render_koyomi import get_full_data, load_databases, build_message, is_new_kou_day  # is_new_kou_dayは互換のため再公開
+from sunmoon import CITY_BY_ID, DEFAULT_CITY_ID
 
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
 JST = timezone(timedelta(hours=9))
-
 
 def today_jst() -> date:
     """日本時間の今日の日付を返す。
     GitHub Actionsの実行環境はUTCで動いており、date.today()だと朝7時(JST)の実行時に
     前日の日付になってしまうため、必ずJSTを明示して取得する。"""
     return datetime.now(JST).date()
-
-
-def is_new_kou_day(target_date) -> bool:
-    """今日が七十二候の切り替わり初日かどうかを判定する(前日と候が違えばTrue)"""
-    today_kou = get_sekki_and_kou(target_date)
-    yesterday_kou = get_sekki_and_kou(target_date - timedelta(days=1))
-    today_key = (today_kou["sekki_name"], today_kou["kou_label"], today_kou["kou_name"])
-    yesterday_key = (yesterday_kou["sekki_name"], yesterday_kou["kou_label"], yesterday_kou["kou_name"])
-    return today_key != yesterday_key
 
 
 def init_firebase():
@@ -57,15 +54,17 @@ def write_today_json(full_data):
     print(f"today.json を更新しました(全セクション収録): {path}")
 
 
-def get_all_tokens():
+def get_subscribers_by_city() -> dict:
+    """Firestoreの購読者を、都市ごとにまとめる。都市が未設定・不明な購読者は既定の都市(東京)として扱う。"""
     db = firestore.client()
-    tokens = []
+    groups = defaultdict(list)
     for doc in db.collection("subscribers").stream():
-        d = doc.to_dict()
-        t = d.get("token") or doc.id
-        if t:
-            tokens.append(t)
-    return tokens
+        d = doc.to_dict() or {}
+        token = d.get("token") or doc.id
+        city = d.get("city")
+        if token:
+            groups[city if city in CITY_BY_ID else DEFAULT_CITY_ID].append(token)
+    return groups
 
 
 def chunked(seq, size):
@@ -84,13 +83,9 @@ def remove_invalid_tokens(invalid_tokens):
     print(f"無効になっていたトークンを{len(invalid_tokens)}件削除しました。")
 
 
-def send_to_all(tokens, title, body, click_url):
-    if not tokens:
-        print("購読者がまだいません。通知は送信されませんでした。")
-        return
-
-    invalid = []
-    sent = 0
+def send_to_city(tokens, title, body, click_url) -> tuple:
+    """(送信成功数, 無効トークンのリスト)"""
+    invalid, sent = [], 0
     for batch_tokens in chunked(tokens, 500):  # FCMの一括送信は最大500件/回
         message = messaging.MulticastMessage(
             notification=messaging.Notification(title=title, body=body),
@@ -107,9 +102,23 @@ def send_to_all(tokens, title, body, click_url):
                 code = getattr(resp.exception, "code", "")
                 if code in ("NOT_FOUND", "UNREGISTERED", "INVALID_ARGUMENT"):
                     invalid.append(batch_tokens[idx])
+    return sent, invalid
 
-    print(f"{sent} / {len(tokens)} 件に通知を送信しました。")
-    remove_invalid_tokens(invalid)
+
+def send_all(groups: dict, full_data: dict, click_url: str):
+    total = sum(len(v) for v in groups.values())
+    if total == 0:
+        print("購読者がまだいません。通知は送信されませんでした。")
+        return
+    sent_total, invalid_all = 0, []
+    for city_id, tokens in groups.items():
+        title, body = build_message(full_data, city_id)
+        sent, invalid = send_to_city(tokens, title, body, click_url)
+        sent_total += sent
+        invalid_all += invalid
+        print(f"  {CITY_BY_ID[city_id]['name']}: {sent}/{len(tokens)}件 「{title}」")
+    print(f"{sent_total} / {total} 件に通知を送信しました。")
+    remove_invalid_tokens(invalid_all)
 
 
 def main():
@@ -117,32 +126,20 @@ def main():
     site_url = os.environ.get("SITE_URL", "/")
 
     today = today_jst()
-    db = load_content_db()
-    mdb = load_memorial_db()
-    sdb = load_sekki_description_db()
-    kmdb = load_kyureki_month_db()
-    full_data = get_full_data(today, db, mdb, sdb, kmdb)
-    memorials = full_data["memorials"]
+    full_data = get_full_data(today, load_databases())
 
     # サイト表示用のtoday.jsonは毎日更新する(通知の有無に関わらず、いつ開いても今日の内容が見える)
     write_today_json(full_data)
 
-    should_notify = is_new_kou_day(today) or bool(memorials)
-    if not should_notify:
+    reasons = full_data["reasons"]   # 今日が何の日か(通知のきっかけ)
+    if not reasons:
         print(f"{today} は「{full_data['sekki_name']}・{full_data['kou_name']}（{full_data['kou_label']}）」の期間中で、"
-              "候の切り替わり日でも記念日のある日でもないため、通知は送信しません(サイトの表示のみ更新)。")
+              "通知のきっかけ(七十二候の切り替わり・祝日・祭日・主要な年中行事・記念日)がないため、"
+              "通知は送信しません(サイトの表示のみ更新)。")
         return
 
-    if memorials:
-        title = f"「{memorials[0]['name']}」　― {full_data['sekki_name']}・{full_data['kou_name']}（{full_data['kou_label']}）"
-    else:
-        title = f"{full_data['kou_name']}（{full_data['kou_label']}）　― {full_data['sekki_name']}"
-    body = full_data["season_flow"]
-    if memorials:
-        body = f"「{memorials[0]['name']}」の日。{body}"
-
-    tokens = get_all_tokens()
-    send_to_all(tokens, title, body, site_url)
+    print("通知のきっかけ: " + "、".join(r["short"] for r in reasons))
+    send_all(get_subscribers_by_city(), full_data, site_url)
 
 
 if __name__ == "__main__":
