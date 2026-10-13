@@ -102,6 +102,28 @@
     border-top: 1px dashed var(--line);
     white-space: pre-line;
   }
+  .today-card .rokuyo { margin: 0.1rem 0 1rem; font-size: 0.85rem; color: rgba(31, 51, 80, 0.85); }
+  .today-card .rk-name { font-family: "Shippori Mincho", serif; font-size: 1.05rem; color: var(--accent); margin-right: 0.4rem; }
+  .today-card .rk-desc { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: rgba(31, 51, 80, 0.72); }
+  .sunmoon { margin: 0 0 1.3rem; padding-top: 0.9rem; border-top: 1px dashed var(--line); }
+  .sunmoon-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+  .sunmoon-head label { font-size: 0.78rem; color: rgba(31, 51, 80, 0.65); }
+  .sunmoon-head select {
+    font: inherit; font-size: 1rem; padding: 0.4rem 0.6rem; max-width: 100%;
+    background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 2px;
+  }
+  .sunmoon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem 0.5rem; margin: 0; }
+  .sunmoon-grid div { text-align: center; }
+  .sunmoon-grid dt { font-size: 0.72rem; color: rgba(31, 51, 80, 0.6); }
+  .sunmoon-grid dd { margin: 0; font-family: "Shippori Mincho", serif; font-size: 1.2rem; }
+  .today-card .today-reasons { font-family: "Shippori Mincho", serif; font-size: 1.02rem; color: var(--accent); margin: 0 0 0.9rem; line-height: 1.7; }
+  .today-card .today-reasons:empty { display: none; }
+  .today-card .astro-tags { margin: -0.4rem 0 1rem; font-size: 0.8rem; color: var(--accent); }
+  .today-card .astro-tags:empty { display: none; }
+  .sunmoon-length { margin: 0.9rem 0 0; font-size: 0.82rem; color: rgba(31, 51, 80, 0.8); text-align: center; }
+  .sunmoon-note { font-size: 0.72rem; color: rgba(31, 51, 80, 0.55); margin: 0.8rem 0 0; }
+  .city-status { font-size: 0.78rem; color: rgba(31, 51, 80, 0.7); margin: 0.5rem 0 0; min-height: 1.2em; }
+  .reading .tag { font-size: 0.7rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border: 1px solid var(--line); border-radius: 2px; color: rgba(31, 51, 80, 0.65); white-space: nowrap; }
   .today-meta {
     font-size: 0.82rem;
     color: rgba(31, 51, 80, 0.65);
@@ -223,8 +245,21 @@
 
     <div class="today-card" id="today-card">
       <div class="label">今日の暦</div>
+      <div class="today-reasons" id="today-reasons"></div>
       <div class="gregorian" id="today-gregorian"></div>
       <div class="today-meta" id="today-meta"></div>
+      <div class="rokuyo" id="today-rokuyo"></div>
+      <div class="astro-tags" id="today-astro"></div>
+      <div class="sunmoon">
+        <div class="sunmoon-head">
+          <label for="city-select">地点</label>
+          <select id="city-select" aria-label="日の出・日の入り・月の出入りの地点"></select>
+        </div>
+        <dl class="sunmoon-grid" id="sunmoon-grid"></dl>
+        <p class="sunmoon-length" id="sunmoon-length"></p>
+        <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。</p>
+        <p class="city-status" id="city-status"></p>
+      </div>
       <div class="sekki" id="today-sekki">読み込み中…</div>
       <div class="flow" id="today-flow"></div>
       <div class="month-note" id="today-month-note"></div>
@@ -244,7 +279,8 @@
     <section class="howto">
       <h2>使いかた</h2>
       <ol>
-        <li>上のボタンから通知を許可すると、七十二候が移り変わる日（約5日ごと）や記念日に、この端末へ季節の便りが届きます。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
+        <li>上のボタンから通知を許可すると、七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、記念日に、この端末へ季節の便りが届きます（年に約140日、2〜3日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
+        <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
         <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
         <li>アカウント登録は必要ありません。通知が不要になったら、端末の通知設定からいつでもオフにできます。</li>
       </ol>
@@ -261,9 +297,21 @@
 
     const statusEl = document.getElementById("status");
     const btn = document.getElementById("subscribe-btn");
+    const citySelect = document.getElementById("city-select");
+    const cityStatusEl = document.getElementById("city-status");
 
     const app = initializeApp(window.firebaseConfig);
     const db = getFirestore(app);
+
+    const CITY_KEY = "koyomi_city";          // 選んだ都市(この端末に保存)
+    const SYNCED_KEY = "koyomi_city_synced"; // 通知用に都市をサーバーへ保存済みの都市
+    let DATA = null;
+    let currentCity = null;
+
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    };
 
     const esc = (s) => (s ?? "").toString()
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -273,18 +321,76 @@
       return `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
     }
 
-    function renderArticle(data) {
-      const memorialsHtml = (data.memorials && data.memorials.length)
-        ? `<p>本日にちなむ記念日：</p>` + data.memorials.map((m) =>
-            `<p><span class="memorial-name">■ ${esc(m.name)}</span><br>${esc(m.origin)}</p>`
-          ).join("")
-        : `<p>この日に該当する記念日は未収録です。</p>`;
+    // 祝日・祭日・年中行事・記念日・雑節・選日の1件分
+    function itemHtml(it, tag) {
+      return `<p><span class="memorial-name">■ ${esc(it.name)}</span><span class="tag">${esc(tag)}</span><br>${esc(it.desc)}</p>`;
+    }
 
-      const otherPlants = (data.other_plants || [])
-        .map((p) => `${esc(p.name)}（${esc(p.note)}）`);
+    function cityName(id) {
+      const c = DATA.cities.find((x) => x.id === id);
+      return c ? c.name : id;
+    }
 
-      const craftHtml = (data.craft || [])
-        .map((c) => `${esc(c.name)}：${esc(c.note)}`);
+    // ---- 今日の暦カード(地点によって変わる部分は、日の出入り・月の出入りの表) ----
+    function renderCard() {
+      const d = DATA;
+      // 通知のきっかけ(今日は何の日か)。通知のタイトルと同じ言い方
+      const rs = d.reasons || [];
+      document.getElementById("today-reasons").textContent = rs.length ? `今日は${rs.map((r) => r.short).join("／")}` : "";
+      document.getElementById("today-gregorian").textContent = `西暦 ${d.gregorian_label}`;
+      document.getElementById("today-meta").textContent =
+        `旧暦 ${d.kyureki}（${d.moon_phase_name}）　日の干支 ${d.kanshi}　正午月齢 ${d.moon_age_label}`;
+      const r = d.rokuyo;
+      document.getElementById("today-rokuyo").innerHTML =
+        `<span class="rk-name">${esc(r.name)}</span>六曜（${esc(r.yomi)}）：${esc(r.timing)}` +
+        `<span class="rk-desc">${esc(r.desc)}</span>`;
+
+      const sm = d.sun_moon[currentCity];
+      const cells = [["日の出", "sunrise"], ["日南中", "solar_noon"], ["日の入り", "sunset"],
+                     ["月の出", "moonrise"], ["月南中", "moon_transit"], ["月の入り", "moonset"]];
+      document.getElementById("sunmoon-grid").innerHTML =
+        cells.map(([label, key]) => `<div><dt>${label}</dt><dd>${esc(sm[key] || "—")}</dd></div>`).join("");
+      document.getElementById("sunmoon-length").textContent =
+        sm.day_length ? `昼の長さ ${sm.day_length}（${sm.day_diff}）` : "";
+      const tags = (d.astro && d.astro.tags) || [];
+      document.getElementById("today-astro").textContent = tags.length ? `今日の天文：${tags.join("／")}` : "";
+
+      document.getElementById("today-sekki").textContent =
+        `${d.sekki_name}（${d.sekki_yomi}）・${d.kou_name}（${d.kou_label}）`;
+      document.getElementById("today-flow").textContent = d.season_flow || "";
+      if (d.kyureki_month_name) {
+        const monthLine = `旧暦${d.is_leap_month ? "閏" : ""}${d.kyureki_month_num}月は「${d.kyureki_month_name}（${d.kyureki_month_yomi}）」。${d.kyureki_month_description}`;
+        document.getElementById("today-month-note").textContent =
+          d.climate_note ? `${monthLine}\n\n${d.climate_note}` : monthLine;
+      }
+    }
+
+    // ---- 読み物(全セクション) ----
+    function renderArticle() {
+      const data = DATA;
+      const sm = data.sun_moon[currentCity];
+
+      const holidayTag = (it) => (it.kind && it.kind !== "祝日") ? it.kind : "国民の祝日";
+      const dayParts = [
+        ...(data.holidays || []).map((it) => itemHtml(it, holidayTag(it))),
+        ...(data.saijitsu || []).map((it) => itemHtml(it, "重要な祭日")),
+        ...(data.events || []).map((it) => itemHtml(it, "年中行事")),
+        ...(data.kinenbi || []).map((it) => itemHtml(it, "記念日")),
+      ];
+      const dayHtml = dayParts.length ? dayParts.join("") : `<p>この日に該当する祝日・行事・記念日はありません。</p>`;
+
+      const sekkiParts = [
+        ...(data.zassetsu || []).map((it) => itemHtml(it, "雑節")),
+        ...(data.ichiryu_manbai ? [itemHtml(data.ichiryu_manbai, "選日")] : []),
+        ...(data.senjitsu || []).map((it) => itemHtml(it, "選日")),
+      ];
+      const sekkiHtml = sekkiParts.length ? sekkiParts.join("") : `<p>この日に該当する雑節・選日はありません。</p>`;
+
+      const astroHtml = ((data.astro && data.astro.items) || []).filter((it) => it.lines && it.lines.length)
+        .map((it) => `<p class="sub-label">${esc(it.title)}</p>${ul(it.lines)}`).join("");
+
+      const otherPlants = (data.other_plants || []).map((p) => `${esc(p.name)}（${esc(p.note)}）`);
+      const craftHtml = (data.craft || []).map((c) => `${esc(c.name)}：${esc(c.note)}`);
 
       const sections = [
         ["☀️", "季節の移ろい", `
@@ -301,7 +407,8 @@
         ["🏡", "日本の風習・しきたり", `
           <p>${esc(data.customs_intro)}</p>
           ${ul(data.customs_bullets)}`],
-        ["🎌", "日本の記念日と祝日", memorialsHtml],
+        ["🎌", "日本の記念日と祝日", dayHtml],
+        ["🔖", "雑節・選日", sekkiHtml],
         ["📚", "日本の神話・伝説", `<p>${esc(data.mythology)}</p>`],
         ["💡", "暦にまつわる文化雑学", `<p>${esc(data.trivia)}</p>`],
         ["🍁", "自然と気象情報", ul(data.weather_points || data.nature_points)],
@@ -317,8 +424,9 @@
           <p class="sub-label">その他の植物</p>
           ${ul(otherPlants)}`],
         ["🌕", "月や星の暦・天文情報", `
-          <p>${esc(data.moon_position_today)}</p>
+          <p>${esc(sm.moon_tonight)}</p>
           <p>${esc(data.astronomy_moon)}</p>
+          ${astroHtml}
           <p class="sub-label">星空では</p>
           ${ul(data.astronomy_stars)}`],
         ["🎨", "伝統工芸・民芸品", ul(craftHtml)],
@@ -326,7 +434,7 @@
         ["🎼", "伝統芸能", `<p>${esc(data.performing_art)}</p>`],
       ];
 
-      return sections.map(([emoji, title, body]) => `
+      document.getElementById("reading").innerHTML = sections.map(([emoji, title, body]) => `
         <section>
           <div class="section-head">
             <span class="section-emoji">${emoji}</span>
@@ -337,28 +445,69 @@
       `).join("");
     }
 
-    // 今日の暦を取得し、上部カードと全セクションの読み物の両方に反映する
+    function renderAll() {
+      renderCard();
+      renderArticle();
+    }
+
+    // ---- 通知用の「選んだ都市」をサーバー(Firestore)に保存する ----
+    async function getTokenIfGranted() {
+      if (!("Notification" in window) || Notification.permission !== "granted") return null;
+      if (!(await isSupported())) return null;
+      const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+      return await getToken(getMessaging(app), {
+        vapidKey: window.VAPID_KEY,
+        serviceWorkerRegistration: registration,
+      });
+    }
+
+    async function syncCityIfSubscribed() {
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        cityStatusEl.textContent = "通知を受け取る場合は、下の「通知を受け取る」から登録してください。選んだ地点の時刻でお届けします。";
+        return;
+      }
+      try {
+        const token = await getTokenIfGranted();
+        if (!token) return;
+        // 都市だけを保存(読み取りはできない設定。既にあれば都市だけが更新される)
+        await setDoc(doc(db, "subscribers", token), { token, city: currentCity }, { merge: true });
+        store.set(SYNCED_KEY, currentCity);
+        cityStatusEl.textContent = `通知も「${cityName(currentCity)}」の時刻でお届けします。`;
+      } catch (err) {
+        console.error(err);
+        cityStatusEl.textContent = "通知の地点を更新できませんでした。時間をおいて、もう一度地点を選び直してください。";
+      }
+    }
+
+    citySelect.addEventListener("change", () => {
+      currentCity = citySelect.value;
+      store.set(CITY_KEY, currentCity);
+      renderAll();
+      syncCityIfSubscribed();
+    });
+
+    // ---- 今日の暦を取得して表示 ----
     fetch("today.json", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!data) return;
-        document.getElementById("today-gregorian").textContent =
-          `西暦 ${data.gregorian_label}`;
-        document.getElementById("today-meta").textContent =
-          `旧暦 ${data.kyureki}（${data.moon_phase_name}）　月齢 ${data.moon_age}`;
-        document.getElementById("today-sekki").textContent =
-          `${data.sekki_name}（${data.sekki_yomi}）・${data.kou_name}（${data.kou_label}）`;
-        document.getElementById("today-flow").textContent = data.season_flow || "";
-        if (data.kyureki_month_name) {
-          const monthNum = data.kyureki.match(/^\D*(\d+)/)?.[1] || "";
-          const monthLine = `旧暦${data.is_leap_month ? "閏" : ""}${monthNum}月は「${data.kyureki_month_name}（${data.kyureki_month_yomi}）」。${data.kyureki_month_description}`;
-          document.getElementById("today-month-note").textContent =
-            data.climate_note ? `${monthLine}\n\n${data.climate_note}` : monthLine;
+        if (!data) throw new Error("today.json not found");
+        DATA = data;
+        const saved = store.get(CITY_KEY);
+        currentCity = (saved && data.sun_moon[saved]) ? saved : data.default_city;
+        citySelect.innerHTML = data.cities.map((c) =>
+          `<option value="${esc(c.id)}">${esc(c.name)}（${esc(c.pref)}）</option>`).join("");
+        citySelect.value = currentCity;
+        renderAll();
+        // 通知登録済みの端末は、保存している都市と今の都市が違うときだけサーバーに反映する
+        if (("Notification" in window) && Notification.permission === "granted" && store.get(SYNCED_KEY) !== currentCity) {
+          syncCityIfSubscribed();
         }
-        document.getElementById("reading").innerHTML = renderArticle(data);
       })
-      .catch(() => {});
+      .catch(() => {
+        document.getElementById("today-sekki").textContent = "今日の暦を読み込めませんでした。時間をおいて、もう一度お試しください。";
+      });
 
+    // ---- 通知の登録 ----
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       statusEl.textContent = "通知の許可を確認しています…";
@@ -376,8 +525,7 @@
           return;
         }
         const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
-        const messaging = getMessaging(app);
-        const token = await getToken(messaging, {
+        const token = await getToken(getMessaging(app), {
           vapidKey: window.VAPID_KEY,
           serviceWorkerRegistration: registration,
         });
@@ -386,13 +534,16 @@
           btn.disabled = false;
           return;
         }
-        // トークンをFirestoreに書き込むだけ(読み取り・上書きはセキュリティルールで禁止)
+        const city = currentCity || (DATA && DATA.default_city) || "tokyo";
+        // トークンと選んだ都市をFirestoreに書き込むだけ(読み取りはセキュリティルールで禁止)
         await setDoc(doc(db, "subscribers", token), {
           token,
+          city,
           registeredAt: serverTimestamp(),
           ua: navigator.userAgent,
-        });
-        statusEl.textContent = "通知の登録が完了しました。七十二候が移り変わる日や記念日に、季節の便りが届きます。";
+        }, { merge: true });
+        store.set(SYNCED_KEY, city);
+        statusEl.textContent = `通知の登録が完了しました。七十二候の切り替わりや祝日・祭日・年中行事・記念日に、「${DATA ? cityName(city) : city}」の時刻を添えてお届けします。`;
         btn.textContent = "登録済みです";
       } catch (err) {
         console.error(err);
