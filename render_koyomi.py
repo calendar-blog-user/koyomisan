@@ -1,222 +1,181 @@
 """
-テンプレートエンジン: 計算エンジン(koyomi_engine.py) + コンテンツDB(kou_content_72.jsonl)
-を結合して、指定フォーマットの暦情報を生成する。LLMは一切使用しない。
+テンプレートエンジン:
+  計算エンジン(koyomi_engine.py / sunmoon.py / calendar_extras.py) + コンテンツDB(kou_content_72.jsonl 等)
+を結合して、その日の暦情報を作る。LLMは一切使用しない。
+
+  get_full_data() : サイト(today.json)・通知用の構造化データ(唯一のデータの取りまとめ口)
+  render_text()   : 指定フォーマット(絵文字見出し)のテキスト。確認用。get_full_data()の出力から作る。
 """
 import json
 import os
-from datetime import date
-from koyomi_engine import get_sekki_and_kou, moon_age, compute_kyuureki, moon_phase_name, moon_position_description
+from datetime import date, timedelta
+
+import astro_events as ae
+import calendar_data as cd
+import calendar_extras as ce
+from koyomi_engine import get_sekki_and_kou, moon_age, compute_kyuureki, moon_phase_name
+from sunmoon import CITIES, CITY_BY_ID, DEFAULT_CITY_ID, sun_moon_times, moon_tonight_text, day_length_fields
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-KANSUJI_TSUKI = ["睦月","如月","弥生","卯月","皐月","水無月","文月","葉月","長月","神無月","霜月","師走"]
-WEEKDAY_JP = ["月","火","水","木","金","土","日"]
+WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
 
 
-def load_content_db(path=None):
-    path = path or os.path.join(SCRIPT_DIR, "kou_content_72.jsonl")
-    db = {}
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            key = (rec["sekki"], rec["kou_label"], rec["kou_name"])
-            db[key] = rec
-    return db
-
-
-def load_kyureki_month_db(path=None):
-    """旧暦月名(和風月名)とその解説を返す(月番号 -> {name, yomi, description})"""
-    path = path or os.path.join(SCRIPT_DIR, "kyureki_month_names.jsonl")
-    db = {}
+# ------------------------------------------------------------------
+# データ読み込み
+# ------------------------------------------------------------------
+def _read_jsonl(name):
+    path = os.path.join(SCRIPT_DIR, name)
     if not os.path.exists(path):
-        return db
+        return []
     with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            db[rec["month"]] = rec
-    return db
+        return [json.loads(line) for line in f if line.strip()]
 
 
-def load_memorial_db(path=None):
-    """月日をキーに記念日リストを返す。365日中、裏付けの取れた日のみ収録(72日分)。"""
-    path = path or os.path.join(SCRIPT_DIR, "memorial_days.jsonl")
-    db = {}
-    if not os.path.exists(path):
-        return db
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            db[(rec["month"], rec["day"])] = rec["entries"]
-    return db
+def load_content_db():
+    """七十二候ごとのコンテンツ: (節気名, 初候/次候/末候, 候名) -> レコード"""
+    return {(r["sekki"], r["kou_label"], r["kou_name"]): r for r in _read_jsonl("kou_content_72.jsonl")}
 
 
-def load_sekki_description_db(path=None):
-    """二十四節気そのものの意味・気候解説を返す(節気名 -> 説明文)"""
-    path = path or os.path.join(SCRIPT_DIR, "sekki_description.jsonl")
-    db = {}
-    if not os.path.exists(path):
-        return db
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            db[rec["sekki"]] = rec["description"]
-    return db
+def load_sekki_description_db():
+    """二十四節気そのものの意味・気候解説: 節気名 -> 説明文"""
+    return {r["sekki"]: r["description"] for r in _read_jsonl("sekki_description.jsonl")}
 
 
-def render(target_date: date, db, memorial_db=None, sekki_desc_db=None, kyureki_month_db=None) -> str:
+def load_kyureki_month_db():
+    """旧暦月名(和風月名)とその解説: 月番号 -> {name, yomi, description}"""
+    return {r["month"]: r for r in _read_jsonl("kyureki_month_names.jsonl")}
+
+
+def load_databases():
+    return {"kou": load_content_db(), "sekki": load_sekki_description_db(), "kyureki_month": load_kyureki_month_db()}
+
+
+# ------------------------------------------------------------------
+# 「今日は何の日か」(通知のきっかけ)。通知のタイトル・本文と、サイトの今日の暦カードで共通に使う
+# ------------------------------------------------------------------
+MAX_REASON_LINES = 5   # 通知の本文に並べる「きっかけ」の最大数
+
+
+def is_new_kou_day(target_date: date) -> bool:
+    """今日が七十二候の切り替わり初日かどうか(前日と候が違えばTrue)。
+    二十四節気の切り替わり日は、その節気の初候の初日なので、これに含まれる。"""
+    key = lambda k: (k["sekki_name"], k["kou_label"], k["kou_name"])
+    return key(get_sekki_and_kou(target_date)) != key(get_sekki_and_kou(target_date - timedelta(days=1)))
+
+
+def first_sentence(text: str, limit: int = 60, min_len: int = 25) -> str:
+    """説明文の冒頭(通知用の短縮版)。最初の一文が短いときは、次の一文まで含める(全体はlimit字まで)。"""
+    sentences = [x + "。" for x in text.split("。") if x]
+    if not sentences:
+        return text
+    out = sentences[0]
+    for nxt in sentences[1:]:
+        if len(out) >= min_len or len(out) + len(nxt) > limit:
+            break
+        out += nxt
+    return out if len(out) <= limit else out[: limit - 1] + "…"
+
+
+def build_reasons(data: dict) -> list:
+    """通知のきっかけ(=今日が何の日か)を、重要な順に並べて返す。
+    順番: 国民の祝日 → 二十四節気 → 重要な祭日 → 主要な年中行事 → 記念日 → 七十二候(次候・末候)
+      short : 「文化の日」（国民の祝日）のような短い言い方(タイトル・サイトの見出し用)
+      line  : 通知の本文に1行ずつ並べる説明
+    雑節・選日・六曜・天文トピックスは、通知のきっかけにしない。"""
+    items = data["notify_items"]
+
+    def item_reason(it):
+        label = it["category"]
+        if label == "国民の祝日" and it.get("kind", "祝日") != "祝日":
+            label = "休日"       # 振替休日・国民の休日
+        return {"kind": "item", "label": label, "name": it["name"],
+                "short": f"「{it['name']}」（{label}）",
+                "line": f"■{label}「{it['name']}」：{first_sentence(it['desc'])}"}
+
+    holidays = [item_reason(i) for i in items if i["category"] == "国民の祝日"]
+    saijitsu = [item_reason(i) for i in items if i["category"] == "重要な祭日"]
+    events = [item_reason(i) for i in items if i["category"] == "年中行事"]
+    kinenbi = [item_reason(i) for i in items if i["category"] == "記念日"]
+
+    sekki, kou = [], []
+    if data["kou_changed"]:
+        if data["kou_label"] == "初候":
+            sekki.append({"kind": "sekki", "label": "二十四節気", "name": data["sekki_name"],
+                          "short": f"二十四節気「{data['sekki_name']}」の始まり",
+                          "line": f"■二十四節気「{data['sekki_name']}」の始まり：{first_sentence(data['sekki_description'])}"
+                                  f"七十二候は「{data['kou_name']}」（初候）に入りました。"})
+        else:
+            kou.append({"kind": "kou", "label": "七十二候", "name": data["kou_name"],
+                        "short": f"七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり",
+                        "line": f"■七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり：{first_sentence(data['season_flow'], 70)}"})
+    return holidays + sekki + saijitsu + events + kinenbi + kou
+
+
+def build_message(data: dict, city_id: str):
+    """(タイトル, 本文) を作る。タイトルで「今日は何の日だから通知しているか」を伝え、
+    本文には、きっかけを区分つきで1行ずつ並べ、最後にその都市の日の出入り・月の出入りを添える。"""
+    reasons = data["reasons"]
+    if not reasons:
+        raise ValueError("通知のきっかけがない日です")
+    title = "今日は" + reasons[0]["short"] + (f" ほか{len(reasons) - 1}件" if len(reasons) > 1 else "")
+
+    lines = [r["line"] for r in reasons[:MAX_REASON_LINES]]
+    if len(reasons) > MAX_REASON_LINES:
+        lines.append(f"ほか{len(reasons) - MAX_REASON_LINES}件")
+    city = CITY_BY_ID[city_id]
+    t = data["sun_moon"][city_id]
+    f = lambda v: v if v else "なし"
+    lines.append(f"【{city['name']}】日の出 {f(t['sunrise'])}／日の入り {f(t['sunset'])}／"
+                 f"月の出 {f(t['moonrise'])}／月の入り {f(t['moonset'])}")
+    return title, "\n".join(lines)
+
+
+# ------------------------------------------------------------------
+# 構造化データ
+# ------------------------------------------------------------------
+def get_full_data(target_date: date, dbs: dict) -> dict:
     sk = get_sekki_and_kou(target_date)
     ma = moon_age(target_date)
     ky = compute_kyuureki(target_date)
     key = (sk["sekki_name"], sk["kou_label"], sk["kou_name"])
-    c = db.get(key)
+    c = dbs["kou"].get(key)
     if c is None:
         raise KeyError(f"コンテンツDBに該当データがありません: {key}")
 
     weekday = WEEKDAY_JP[target_date.weekday()]
     leap = "閏" if ky["is_leap_month"] else ""
-    phase_name = moon_phase_name(ky["kyureki_day"])
-    month_info = (kyureki_month_db or {}).get(ky["kyureki_month"], {})
+    month_info = dbs["kyureki_month"].get(ky["kyureki_month"], {})
+    cal = ce.day_calendar_info(target_date, ky)
 
-    out = []
-    out.append("📅 今日の暦情報")
-    out.append(f"西暦：{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）")
-    out.append(f"旧暦：{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日（{phase_name}）")
-    out.append(f"月齢：{ma}")
-    if month_info:
-        out.append(f"旧暦{leap}{ky['kyureki_month']}月は「{month_info['name']}（{month_info['yomi']}）」。{month_info['description']}")
-    out.append("")
-    out.append(c.get("climate_note", ""))
-    out.append("")
-    out.append("☀️ 季節の移ろい")
-    out.append(f"二十四節気：{sk['sekki_name']}（{sk['sekki_yomi']}）")
-    if sekki_desc_db:
-        out.append(sekki_desc_db.get(sk["sekki_name"], ""))
-    out.append(f"七十二候：{c['kou_name']}（{c['kou_yomi']}）　― {c['kou_label']}")
-    out.append(c["season_flow"])
-    out.append("")
-    out.append("自然の変化としては：")
-    for p in c["nature_points"]:
-        out.append(f"・{p}")
-    out.append("")
-    out.append("🚜 農事歴（農業暦）")
-    out.append(f"この時期は「{c['agri_catchphrase']}」。")
-    for b in c["agri_bullets"]:
-        out.append(f"・{b}")
-    out.append(c["agri_note"])
-    out.append("")
-    out.append("🏡 日本の風習・しきたり")
-    out.append(c["customs_intro"])
-    for b in c["customs_bullets"]:
-        out.append(f"・{b}")
-    out.append("")
-    out.append("🎌 日本の記念日と祝日")
-    memorials = (memorial_db or {}).get((target_date.month, target_date.day))
-    if memorials:
-        out.append("本日にちなむ記念日：")
-        for m in memorials:
-            out.append(f"■ {m['name']}")
-            out.append(m["origin"])
-    else:
-        out.append("（この日に該当する記念日は未収録です）")
-    out.append("")
-    out.append("📚 日本の神話・伝説")
-    out.append(c["mythology"])
-    out.append("")
-    out.append("💡 暦にまつわる文化雑学")
-    out.append(c["trivia"])
-    out.append("")
-    out.append("🍁 自然と気象情報")
-    for p in c.get("weather_points", c["nature_points"]):
-        out.append(f"・{p}")
-    out.append("")
-    out.append("🍴 旬の食材・行事食")
-    out.append("旬を迎える食材：")
-    for v in c["food_veg"]:
-        out.append(f"・{v}")
-    for v in c["food_fruit"]:
-        out.append(f"・{v}")
-    for v in c["food_seafood"]:
-        out.append(f"・{v}")
-    out.append(c["food_note"])
-    out.append("")
-    out.append("行事食としては")
-    for v in c["event_food"]:
-        out.append(f"・{v}")
-    out.append("などが親しまれます。")
-    out.append("")
-    out.append("🌸 季節の草木と花言葉")
-    out.append(f"季節の花：{c['flower_name']}（{c['flower_yomi']}）")
-    out.append(f"・花言葉：「{c['flower_meaning']}」")
-    out.append(f"・{c['flower_note']}")
-    out.append("")
-    out.append("その他の植物：")
-    for p in c["other_plants"]:
-        out.append(f"・{p['name']}（{p['note']}）")
-    out.append("")
-    out.append("🌕 月や星の暦・天文情報")
-    out.append(moon_position_description(target_date))
-    out.append(c["astronomy_moon"])
-    out.append("")
-    out.append("星空では：")
-    for s in c["astronomy_stars"]:
-        out.append(f"・{s}")
-    out.append("")
-    out.append("🎨 伝統工芸・民芸品")
-    out.append("この季節に関連して作られるものとしては：")
-    for cr in c["craft"]:
-        out.append(f"・{cr['name']}：{cr['note']}")
-    out.append("")
-    out.append("📖 祭事の背景・神話伝説")
-    out.append(c["festival_background"])
-    out.append("")
-    out.append("🎼 伝統芸能")
-    out.append(c["performing_art"])
-    return "\n".join(out)
+    # 日の出入り・月の出入り・南中: 地点(政令指定都市＋東京)ごと
+    sun_moon = {}
+    for city in CITIES:
+        t = sun_moon_times(target_date, city["lat"], city["lon"])
+        t["moon_tonight"] = moon_tonight_text(target_date, city["lat"], city["lon"], t)
+        t.update(day_length_fields(target_date, city["lat"], city["lon"]))   # 昼の長さ・前日との差
+        sun_moon[city["id"]] = t
 
-
-def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None, kyureki_month_db=None) -> dict:
-    """サイト表示・today.json用に、全セクションぶんの構造化データを返す"""
-    sk = get_sekki_and_kou(target_date)
-    ma = moon_age(target_date)
-    ky = compute_kyuureki(target_date)
-    key = (sk["sekki_name"], sk["kou_label"], sk["kou_name"])
-    c = db.get(key)
-    if c is None:
-        raise KeyError(f"コンテンツDBに該当データがありません: {key}")
-
-    weekday = WEEKDAY_JP[target_date.weekday()]
-    leap = "閏" if ky["is_leap_month"] else ""
-    memorials = (memorial_db or {}).get((target_date.month, target_date.day)) or []
-    sekki_description = (sekki_desc_db or {}).get(sk["sekki_name"], "")
-    phase_name = moon_phase_name(ky["kyureki_day"])
-    month_info = (kyureki_month_db or {}).get(ky["kyureki_month"], {})
-
-    return {
+    data = {
         "date": target_date.isoformat(),
         "weekday": weekday,
         "gregorian_label": f"{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）",
+        "kanshi": cal["kanshi"],
         "kyureki": f"{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日",
+        "kyureki_month_num": ky["kyureki_month"],
         "kyureki_month_name": month_info.get("name", ""),
         "kyureki_month_yomi": month_info.get("yomi", ""),
         "kyureki_month_description": month_info.get("description", ""),
         "is_leap_month": ky["is_leap_month"],
+        "rokuyo": {**ce.rokuyo_info(ky["kyureki_month"], ky["kyureki_day"]), "note": cd.ROKUYO_NOTE},
         "moon_age": ma,
-        "moon_phase_name": phase_name,
+        "moon_age_label": f"{ma:.1f}",   # 国立天文台の表記(正午月齢・小数第1位)に合わせる
+        "moon_phase_name": moon_phase_name(ky["kyureki_day"]),
+        "cities": [{"id": x["id"], "name": x["name"], "pref": x["pref"]} for x in CITIES],
+        "default_city": DEFAULT_CITY_ID,
+        "sun_moon": sun_moon,
         "sekki_name": sk["sekki_name"],
         "sekki_yomi": sk["sekki_yomi"],
-        "sekki_description": sekki_description,
+        "sekki_description": dbs["sekki"].get(sk["sekki_name"], ""),
         "kou_name": c["kou_name"],
         "kou_yomi": c["kou_yomi"],
         "kou_label": c["kou_label"],
@@ -229,7 +188,17 @@ def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None, k
         "agri_note": c["agri_note"],
         "customs_intro": c["customs_intro"],
         "customs_bullets": c["customs_bullets"],
-        "memorials": memorials,
+        # 🎌 国民の祝日 / 重要な祭日 / 年中行事 / 記念日
+        "holidays": cal["holidays"],
+        "saijitsu": cal["saijitsu"],
+        "events": cal["events"],
+        "kinenbi": cal["kinenbi"],
+        # 🔖 雑節・選日
+        "zassetsu": cal["zassetsu"],
+        "ichiryu_manbai": cal["ichiryu_manbai"],
+        "senjitsu": cal["senjitsu"],
+        # 🌕 天文トピックス(月の満ち欠け・日食月食・流星群)
+        "astro": ae.astro_summary(target_date),
         "mythology": c["mythology"],
         "trivia": c["trivia"],
         "food_veg": c["food_veg"],
@@ -243,23 +212,87 @@ def get_full_data(target_date: date, db, memorial_db=None, sekki_desc_db=None, k
         "flower_note": c["flower_note"],
         "other_plants": c["other_plants"],
         "astronomy_moon": c["astronomy_moon"],
-        "moon_position_today": moon_position_description(target_date),
         "astronomy_stars": c["astronomy_stars"],
         "craft": c["craft"],
         "festival_background": c["festival_background"],
         "performing_art": c["performing_art"],
+        # 通知のきっかけになる項目(国民の祝日 → 重要な祭日 → 主要な年中行事 → 記念日の順)
+        "notify_items": ce.notification_items(cal),
+        "kou_changed": is_new_kou_day(target_date),
     }
+    # 今日が何の日か(通知のきっかけ)。通知のタイトル・本文と、サイトの今日の暦カードで使う
+    data["reasons"] = build_reasons(data)
+    return data
+
+
+# ------------------------------------------------------------------
+# テキスト表示(確認用)
+# ------------------------------------------------------------------
+def _fmt(v):
+    return v if v else "なし"
+
+
+def render_text(data: dict, city_id: str = DEFAULT_CITY_ID) -> str:
+    city = CITY_BY_ID[city_id]
+    sm = data["sun_moon"][city_id]
+    o = []
+    o.append("📅 今日の暦情報")
+    o.append(f"西暦：{data['gregorian_label']}")
+    o.append(f"旧暦：{data['kyureki']}（{data['moon_phase_name']}）")
+    o.append(f"日の干支：{data['kanshi']}")
+    r = data["rokuyo"]
+    o.append(f"六曜：{r['name']}（{r['yomi']}）― {r['timing']}")
+    o.append(f"　{r['desc']}")
+    o.append(f"正午月齢：{data['moon_age_label']}")
+    o.append(f"【{city['name']}】日の出 {_fmt(sm['sunrise'])}／日南中 {_fmt(sm['solar_noon'])}／日の入り {_fmt(sm['sunset'])}")
+    o.append(f"　月の出 {_fmt(sm['moonrise'])}／月南中 {_fmt(sm['moon_transit'])}／月の入り {_fmt(sm['moonset'])}")
+    if sm.get("day_length"):
+        o.append(f"　昼の長さ {sm['day_length']}（{sm['day_diff']}）")
+    if data["kyureki_month_name"]:
+        o.append(f"旧暦{data['kyureki_month_num']}月は「{data['kyureki_month_name']}（{data['kyureki_month_yomi']}）」。{data['kyureki_month_description']}")
+    o += ["", data["climate_note"], "", "☀️ 季節の移ろい",
+          f"二十四節気：{data['sekki_name']}（{data['sekki_yomi']}）", data["sekki_description"],
+          f"七十二候：{data['kou_name']}（{data['kou_yomi']}）　― {data['kou_label']}", data["season_flow"], "",
+          "自然の変化としては："] + [f"・{p}" for p in data["nature_points"]]
+    o += ["", "🚜 農事歴（農業暦）", f"この時期は「{data['agri_catchphrase']}」。"] + [f"・{b}" for b in data["agri_bullets"]] + [data["agri_note"]]
+    o += ["", "🏡 日本の風習・しきたり", data["customs_intro"]] + [f"・{b}" for b in data["customs_bullets"]]
+
+    o += ["", "🎌 日本の記念日と祝日"]
+    any_item = False
+    for title, items in (("国民の祝日", data["holidays"]), ("重要な祭日", data["saijitsu"]),
+                         ("年中行事", data["events"]), ("記念日", data["kinenbi"])):
+        for it in items:
+            any_item = True
+            o += [f"■ {it['name']}（{title}）", it["desc"]]
+    if not any_item:
+        o.append("（この日に該当する祝日・行事・記念日はありません）")
+
+    o += ["", "🔖 雑節・選日"]
+    zs = list(data["zassetsu"]) + ([data["ichiryu_manbai"]] if data["ichiryu_manbai"] else []) + list(data["senjitsu"])
+    if zs:
+        for it in zs:
+            o += [f"■ {it['name']}", it["desc"]]
+    else:
+        o.append("（この日に該当する雑節・選日はありません）")
+
+    o += ["", "📚 日本の神話・伝説", data["mythology"], "", "💡 暦にまつわる文化雑学", data["trivia"],
+          "", "🍁 自然と気象情報"] + [f"・{p}" for p in data["weather_points"]]
+    o += ["", "🍴 旬の食材・行事食", "旬を迎える食材："] + [f"・{v}" for v in data["food_veg"] + data["food_fruit"] + data["food_seafood"]]
+    o += [data["food_note"], "", "行事食としては"] + [f"・{v}" for v in data["event_food"]] + ["などが親しまれます。"]
+    o += ["", "🌸 季節の草木と花言葉", f"季節の花：{data['flower_name']}（{data['flower_yomi']}）",
+          f"・花言葉：「{data['flower_meaning']}」", f"・{data['flower_note']}", "", "その他の植物："]
+    o += [f"・{p['name']}（{p['note']}）" for p in data["other_plants"]]
+    o += ["", "🌕 月や星の暦・天文情報", sm["moon_tonight"], data["astronomy_moon"]]
+    for it in data["astro"]["items"]:
+        o.append(f"【{it['title']}】")
+        o += [f"・{ln}" for ln in it["lines"]]
+    o += ["", "星空では："] + [f"・{s}" for s in data["astronomy_stars"]]
+    o += ["", "🎨 伝統工芸・民芸品", "この季節に関連して作られるものとしては："] + [f"・{c['name']}：{c['note']}" for c in data["craft"]]
+    o += ["", "📖 祭事の背景・神話伝説", data["festival_background"], "", "🎼 伝統芸能", data["performing_art"]]
+    return "\n".join(o)
 
 
 if __name__ == "__main__":
-    db = load_content_db()
-    mdb = load_memorial_db()
-    sdb = load_sekki_description_db()
-    kmdb = load_kyureki_month_db()
-    result = render(date(2026, 9, 18), db, mdb, sdb, kmdb)
-    print(result)
-    print("---")
-    full = get_full_data(date(2026, 9, 18), db, mdb, sdb, kmdb)
-    for k in ["gregorian_label", "kyureki", "moon_age", "moon_phase_name",
-              "kyureki_month_name", "kyureki_month_yomi", "kyureki_month_description"]:
-        print(f"{k}: {full[k]}")
+    dbs = load_databases()
+    d = get_full_data(date(2026, 10, 9), dbs)
+    print(render_text(d, "okayama"))
