@@ -204,7 +204,10 @@
   }
   button.primary:active { opacity: 0.8; }
   button.primary:disabled { opacity: 0.45; cursor: default; }
+  .today-card .stale { font-size: 0.78rem; color: #A33; margin: 0 0 0.8rem; }
+  .today-card .stale:empty { display: none; }
   .status {
+    white-space: pre-line;
     font-size: 0.85rem;
     color: rgba(31, 51, 80, 0.7);
     text-align: center;
@@ -246,6 +249,7 @@
     <div class="today-card" id="today-card">
       <div class="label">今日の暦</div>
       <div class="today-reasons" id="today-reasons"></div>
+      <p class="stale" id="today-stale"></p>
       <div class="gregorian" id="today-gregorian"></div>
       <div class="today-meta" id="today-meta"></div>
       <div class="rokuyo" id="today-rokuyo"></div>
@@ -286,7 +290,7 @@
       </ol>
     </section>
 
-    <footer>登録なし・無料でご利用いただけます</footer>
+    <footer>登録なし・無料でご利用いただけます<br><span id="updated"></span></footer>
   </main>
 
   <script src="firebase-config.js"></script>
@@ -486,11 +490,28 @@
       syncCityIfSubscribed();
     });
 
+    // ---- 日付(日本時間)と、その日のデータの読み込み ----
+    const jstToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());   // 例: 2026-10-14
+
+    // その日(日本時間)のデータを読む。無ければ today.json を読む。
+    // 日付別のファイル(data/YYYY-MM-DD.json)は、毎朝の更新で「前日〜14日先」ぶんが作られるので、
+    // 朝の自動更新が遅れたり失敗したりしても、数日のあいだは正しい日付の暦が表示される。
+    async function loadData() {
+      for (const url of [`data/${jstToday()}.json`, "today.json"]) {
+        try {
+          const r = await fetch(url, { cache: "no-store" });
+          if (!r.ok) continue;
+          const d = await r.json();   // 該当ファイルが無くてHTMLが返ったときも、ここで例外になって次の候補へ進む
+          if (d && d.sun_moon && d.cities) return d;
+        } catch (e) { /* 次の候補へ */ }
+      }
+      return null;
+    }
+
     // ---- 今日の暦を取得して表示 ----
-    fetch("today.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
+    loadData()
       .then((data) => {
-        if (!data) throw new Error("today.json not found");
+        if (!data) throw new Error("data not found");
         DATA = data;
         const saved = store.get(CITY_KEY);
         currentCity = (saved && data.sun_moon[saved]) ? saved : data.default_city;
@@ -498,6 +519,10 @@
           `<option value="${esc(c.id)}">${esc(c.name)}（${esc(c.pref)}）</option>`).join("");
         citySelect.value = currentCity;
         renderAll();
+        // 古いデータが表示されているときは、そのことを伝える(日付が昨日のままに見える原因の切り分けにもなる)
+        document.getElementById("today-stale").textContent = data.date !== jstToday()
+          ? `表示しているのは${data.date}の暦です。最新のデータを取得できていない可能性があります。` : "";
+        document.getElementById("updated").textContent = data.generated_at ? `データ更新：${data.generated_at}（日本時間）` : "";
         // 通知登録済みの端末は、保存している都市と今の都市が違うときだけサーバーに反映する
         if (("Notification" in window) && Notification.permission === "granted" && store.get(SYNCED_KEY) !== currentCity) {
           syncCityIfSubscribed();
@@ -507,20 +532,56 @@
         document.getElementById("today-sekki").textContent = "今日の暦を読み込めませんでした。時間をおいて、もう一度お試しください。";
       });
 
+    // ---- 通知が使えないとき、何が原因で、どうすればよいかを案内する ----
+    const UA = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+    const isInApp = /Line\/|FBAN|FBAV|Instagram|Twitter|MicroMessenger|KAKAOTALK|; wv\)/i.test(UA);   // LINE・SNSなどのアプリ内ブラウザ
+
+    function helpText(kind) {
+      if (isInApp) {
+        return "LINEやSNSなどのアプリ内ブラウザでは、通知を許可できません。\nChrome（Android）またはSafari（iPhone）で、このページを開き直してください。";
+      }
+      if (kind === "unsupported") {
+        return (isIOS && !isStandalone)
+          ? "iPhoneでは、先にホーム画面に追加する必要があります。\nSafariの共有ボタン →「ホーム画面に追加」を押し、できたアイコンからこのページを開いて、もう一度お試しください（iOS 16.4以降）。"
+          : "お使いのブラウザは、通知に対応していません。ChromeやSafariなどで開き直してください。";
+      }
+      if (kind === "default") {
+        return "通知の許可が選ばれませんでした（確認の表示が閉じられました）。\nもう一度ボタンを押して、「許可」を選んでください。";
+      }
+      // denied: 以前に「ブロック」を選んだか、端末側で通知が止められている
+      if (isIOS) {
+        return "この端末で、通知がブロックされています。\niPhoneの「設定」アプリ →「通知」で、ホーム画面に追加したこのアプリの通知を許可してください。";
+      }
+      return "このサイトの通知が、ブロックされています。\n① アドレスバーの左にある鍵（または設定）のアイコンをタップ →「権限」または「サイトの設定」→「通知」を「許可」にする\n② それでも変わらないときは、スマホ本体の「設定」→「アプリ」→「Chrome」→「通知」がオンか確認する\n変更したら、このページを開き直して、もう一度お試しください。";
+    }
+
+    // ページを開いた時点で、すでに通知が使えない状態なら、先に案内を出しておく
+    if (isInApp || (("Notification" in window) && Notification.permission === "denied") ||
+        (!("Notification" in window) && isIOS && !isStandalone)) {
+      statusEl.textContent = helpText(("Notification" in window) ? "denied" : "unsupported");
+    }
+
     // ---- 通知の登録 ----
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       statusEl.textContent = "通知の許可を確認しています…";
       try {
-        const supported = await isSupported();
-        if (!supported) {
-          statusEl.textContent = "お使いのブラウザは通知に対応していません。";
+        if (!("Notification" in window)) {
+          statusEl.textContent = helpText("unsupported");
           btn.disabled = false;
           return;
         }
+        // 許可の確認は、ボタンを押した直後に呼ぶ(ブラウザは、操作の直後でないと確認の表示を出さないことがあるため)
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
-          statusEl.textContent = "通知が許可されませんでした。ブラウザの設定からいつでも変更できます。";
+          statusEl.textContent = helpText(permission === "denied" ? "denied" : "default");
+          btn.disabled = false;
+          return;
+        }
+        if (!("serviceWorker" in navigator) || !(await isSupported())) {
+          statusEl.textContent = helpText("unsupported");
           btn.disabled = false;
           return;
         }
@@ -530,7 +591,7 @@
           serviceWorkerRegistration: registration,
         });
         if (!token) {
-          statusEl.textContent = "通知登録用のトークンを取得できませんでした。";
+          statusEl.textContent = "通知登録用のトークンを取得できませんでした。時間をおいて、もう一度お試しください。";
           btn.disabled = false;
           return;
         }
