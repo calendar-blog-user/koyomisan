@@ -1,2 +1,2 @@
 ephem
-firebase-admin
+firebase-admin>=6.2,<8

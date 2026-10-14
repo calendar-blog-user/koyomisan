@@ -1,17 +1,21 @@
 """
-毎日実行するスクリプト(不特定多数の利用者向け):
-  1. 今日(日本時間)の暦情報を、全地点(政令指定都市＋東京)ぶん生成し、public/today.json を更新する(毎日)
-  2. 次の「通知のきっかけ」がある日だけ、購読者全員にFirebase Cloud Messaging経由で通知を送る。
-     通知には、購読者が選んだ都市の日の出・日の入り・月の出・月の入りを添える。
-       ・二十四節気・七十二候の切り替わり日
-       ・国民の祝日(振替休日・国民の休日を含む)
-       ・重要な祭日
-       ・主要な年中行事
-       ・記念日
-     (雑節・選日・六曜・天文トピックスは、サイトには表示するが通知のきっかけにはしない)
-     通知のタイトルは「今日は〇〇（区分）」の形で、何の日だから通知しているかが分かるようにする。
+毎日実行するスクリプト(不特定多数の利用者向け)。2段階に分けて実行できる:
 
-必要な環境変数:
+  python notify_fcm.py build : サイトのデータを作る(Firebase不要)
+      public/today.json と、public/data/YYYY-MM-DD.json(前日〜14日先)を生成する。
+      画面はブラウザの日付(日本時間)に合うファイルを読むので、朝の自動実行が遅れたり失敗したりしても、
+      数日のあいだは正しい日付の暦が表示される。
+  python notify_fcm.py send  : 通知のきっかけがある日だけ、購読者全員にFirebase Cloud Messagingで通知する。
+      購読者が選んだ都市の日の出・日の入り・月の出・月の入りを添える。都市ごとに本文を作り分ける。
+      通知のきっかけ: 二十四節気・七十二候の切り替わり／国民の祝日／重要な祭日／主要な年中行事／記念日
+      (雑節・選日・六曜・天文トピックスは、サイトには表示するが通知のきっかけにはしない)。
+      通知のタイトルは「今日は〇〇（区分）」の形で、何の日だから通知しているかが分かるようにする。
+  python notify_fcm.py       : 両方を続けて実行する(従来どおり)
+
+GitHub Actionsでは「build → サイトのデプロイ → send」の順に実行する。通知の送信に失敗しても、
+サイトの更新は先に済んでいるようにするため。
+
+必要な環境変数(sendのみ):
   FIREBASE_SERVICE_ACCOUNT_JSON : Firebaseサービスアカウントの秘密鍵(JSON文字列そのもの)
   SITE_URL                      : 通知をタップしたときに開くURL(例: https://your-project.web.app)
 """
@@ -47,11 +51,31 @@ def init_firebase():
     firebase_admin.initialize_app(cred)
 
 
-def write_today_json(full_data):
-    path = os.path.join(PUBLIC_DIR, "today.json")
+WINDOW_PAST_DAYS = 1      # 前日から(日付をまたぐ直前の閲覧に備える)
+WINDOW_FUTURE_DAYS = 14   # 14日先まで(朝の自動実行が止まっても、数日は正しい日付が出る)
+
+
+def _dump(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(full_data, f, ensure_ascii=False, indent=2)
-    print(f"today.json を更新しました(全セクション収録): {path}")
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def build_site_data(today: date, dbs: dict) -> dict:
+    """public/data/YYYY-MM-DD.json(前日〜14日先)と public/today.json を作り、今日のデータを返す。"""
+    generated_at = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+    today_data = None
+    for offset in range(-WINDOW_PAST_DAYS, WINDOW_FUTURE_DAYS + 1):
+        d = today + timedelta(days=offset)
+        data = get_full_data(d, dbs)
+        data["generated_at"] = generated_at   # いつ作ったデータか(サイトの下部に表示。古いままの原因調べに使う)
+        _dump(os.path.join(PUBLIC_DIR, "data", f"{d.isoformat()}.json"), data)
+        if offset == 0:
+            today_data = data
+            _dump(os.path.join(PUBLIC_DIR, "today.json"), data)   # 旧版のサイトや、日付別ファイルが無いときの予備
+    print(f"サイトのデータを作成しました: {today - timedelta(days=WINDOW_PAST_DAYS)} 〜 {today + timedelta(days=WINDOW_FUTURE_DAYS)}"
+          f"(今日={today}、生成={generated_at})")
+    return today_data
 
 
 def get_subscribers_by_city() -> dict:
@@ -105,41 +129,58 @@ def send_to_city(tokens, title, body, click_url) -> tuple:
     return sent, invalid
 
 
-def send_all(groups: dict, full_data: dict, click_url: str):
+def send_all(groups: dict, full_data: dict, click_url: str) -> int:
+    """都市ごとに通知を送る。ある都市の送信に失敗しても、ほかの都市は送る。失敗した都市の数を返す。"""
     total = sum(len(v) for v in groups.values())
     if total == 0:
         print("購読者がまだいません。通知は送信されませんでした。")
-        return
-    sent_total, invalid_all = 0, []
+        return 0
+    sent_total, invalid_all, failed = 0, [], 0
     for city_id, tokens in groups.items():
         title, body = build_message(full_data, city_id)
-        sent, invalid = send_to_city(tokens, title, body, click_url)
+        try:
+            sent, invalid = send_to_city(tokens, title, body, click_url)
+        except Exception as e:   # noqa: BLE001 (原因をログに残して、次の都市へ進む)
+            failed += 1
+            print(f"  {CITY_BY_ID[city_id]['name']}: 送信に失敗しました: {type(e).__name__}: {e}", file=sys.stderr)
+            continue
         sent_total += sent
         invalid_all += invalid
         print(f"  {CITY_BY_ID[city_id]['name']}: {sent}/{len(tokens)}件 「{title}」")
     print(f"{sent_total} / {total} 件に通知を送信しました。")
-    remove_invalid_tokens(invalid_all)
+    try:
+        remove_invalid_tokens(invalid_all)
+    except Exception as e:   # noqa: BLE001
+        print(f"無効なトークンの削除に失敗しました(通知の送信には影響しません): {e}", file=sys.stderr)
+    return failed
 
 
-def main():
-    init_firebase()
-    site_url = os.environ.get("SITE_URL", "/")
-
-    today = today_jst()
-    full_data = get_full_data(today, load_databases())
-
-    # サイト表示用のtoday.jsonは毎日更新する(通知の有無に関わらず、いつ開いても今日の内容が見える)
-    write_today_json(full_data)
-
+def send_notifications(today: date, full_data: dict) -> int:
     reasons = full_data["reasons"]   # 今日が何の日か(通知のきっかけ)
     if not reasons:
         print(f"{today} は「{full_data['sekki_name']}・{full_data['kou_name']}（{full_data['kou_label']}）」の期間中で、"
-              "通知のきっかけ(七十二候の切り替わり・祝日・祭日・主要な年中行事・記念日)がないため、"
-              "通知は送信しません(サイトの表示のみ更新)。")
+              "通知のきっかけ(七十二候の切り替わり・祝日・祭日・主要な年中行事・記念日)がないため、通知は送信しません。")
+        return 0
+    print("通知のきっかけ: " + "、".join(r["short"] for r in reasons))
+    init_firebase()
+    return send_all(get_subscribers_by_city(), full_data, os.environ.get("SITE_URL", "/"))
+
+
+def main(argv=None):
+    mode = (argv if argv is not None else sys.argv[1:] or ["all"])[0]
+    if mode not in ("build", "send", "all"):
+        print("使い方: python notify_fcm.py [build|send]", file=sys.stderr)
+        sys.exit(2)
+
+    today = today_jst()
+    dbs = load_databases()
+    full_data = build_site_data(today, dbs) if mode in ("build", "all") else get_full_data(today, dbs)
+    if mode == "build":
         return
 
-    print("通知のきっかけ: " + "、".join(r["short"] for r in reasons))
-    send_all(get_subscribers_by_city(), full_data, site_url)
+    failed = send_notifications(today, full_data)
+    if failed:
+        sys.exit(1)   # 失敗した都市があれば、Actionsの実行を失敗にして気づけるようにする(サイトの更新は済んでいる)
 
 
 if __name__ == "__main__":
