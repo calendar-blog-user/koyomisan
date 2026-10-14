@@ -2,8 +2,9 @@ name: Daily Koyomi Notification
 
 on:
   schedule:
-    # 毎日JST7:00に実行(サイトの表示は毎日更新。プッシュ通知は七十二候が切り替わった日、または記念日がある日だけ送信される)
-    - cron: '0 22 * * *'
+    # 毎朝、日本時間の6:47ごろに実行する(UTC 21:47)。
+    # GitHub Actionsの定期実行は、毎時0分ちょうどに集中して遅れやすいため、少しずらしている。
+    - cron: '47 21 * * *'
   workflow_dispatch: {}  # 手動実行もできるようにしておく(テスト用)
 
 jobs:
@@ -19,16 +20,22 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Generate today.json and send push notifications
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          SITE_URL: ${{ vars.SITE_URL }}
-        run: python notify_fcm.py
+      # 1) サイトのデータを作る(今日の前日〜14日先。Firebaseの認証は不要)
+      - name: Build site data
+        run: python notify_fcm.py build
 
-      - name: Deploy updated today.json to Firebase Hosting
+      # 2) サイトを更新する。通知の送信より先に行うので、通知の送信で問題が起きても、サイトの日付は更新される
+      - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           channelId: live
           projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+
+      # 3) 通知のきっかけがある日だけ、購読者に通知する(都市ごとに本文を作り分ける)
+      - name: Send push notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: python notify_fcm.py send
