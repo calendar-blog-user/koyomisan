@@ -7,7 +7,7 @@ const firebaseConfig = {
   appId: "1:519059910067:web:9b2cf4a9bb3977f8946fc6"
 };
 
-const VAPID_KEY = "BPEpYTaZuRS2vk_oTe5TBwo7xy-KyRKOSrOp9y_qX6B7L0LQYVOFWUeYWLy7oz2js8cMjLm933pGkPWUD-0Zx7s";
+const VAPID_KEY = "BPEpYTaZuRS2vk_oTe5TBwo7xy-KyRKOSrOp9y_qX6B7L0LQYVOFWUeYWly7oz2js8cMjLm933pGkPWUD-OZx7s";
 
 if (typeof window !== "undefined") {
   window.firebaseConfig = firebaseConfig;
