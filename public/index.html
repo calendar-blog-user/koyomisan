@@ -557,10 +557,55 @@
       return "このサイトの通知が、ブロックされています。\n① アドレスバーの左にある鍵（または設定）のアイコンをタップ →「権限」または「サイトの設定」→「通知」を「許可」にする\n② それでも変わらないときは、スマホ本体の「設定」→「アプリ」→「Chrome」→「通知」がオンか確認する\n変更したら、このページを開き直して、もう一度お試しください。";
     }
 
+    // ---- 通知用の鍵(VAPIDキー)が正しいかを、登録の前に確かめる ----
+    // VAPIDキーは楕円曲線(P-256)の公開鍵で、1文字でも違うと鍵として成立しない。
+    // 誤りのまま登録を試みると「エラーが発生しました」としか分からないため、先に判定して原因を伝える。
+    async function isValidVapid(key) {
+      if (!(window.crypto && window.crypto.subtle)) return true;   // 確かめられない環境では、判定しない
+      try {
+        const b64 = String(key || "").replace(/-/g, "+").replace(/_/g, "/");
+        const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+        const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+        if (bytes.length !== 65 || bytes[0] !== 4) return false;
+        await window.crypto.subtle.importKey("raw", bytes, { name: "ECDH", namedCurve: "P-256" }, false, []);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    const isBraveBrowser = async () => !!(navigator.brave && (await navigator.brave.isBrave().catch(() => false)));
+    const BRAVE_NOTE = "Braveでは、通知の仕組み（Googleのプッシュ）が標準で止められています。\n" +
+      "Braveの「設定」→「プライバシーとセキュリティ」→「プッシュメッセージングにGoogleサービスを使用する」（Use Google services for push messaging）をオンにして、Braveを一度終了してから、もう一度お試しください。\n" +
+      "それでも登録できないときは、Chromeでお試しください。";
+
+    // 通知の登録で起きたエラーを、原因が分かる案内に変える(最後に技術情報も付ける)
+    async function describeError(err) {
+      const name = (err && err.name) || "";
+      const code = (err && err.code) || "";
+      const msg = String((err && err.message) || err || "");
+      const tech = `（技術情報：${[name, code].filter(Boolean).join(" / ") || "不明"}）`;
+      if (/push service error/i.test(msg) || name === "AbortError") {
+        return ((await isBraveBrowser()) ? BRAVE_NOTE : "このブラウザでは、通知の登録に失敗しました。ChromeまたはSafariでお試しください。") + "\n" + tech;
+      }
+      if (/applicationServerKey|InvalidAccessError/i.test(name + " " + msg)) {
+        return "通知用の鍵（VAPIDキー）の設定に誤りがあります。サイトの管理者にお知らせください。\n" + tech;
+      }
+      if (code === "permission-denied" || /insufficient permissions/i.test(msg)) {
+        return "通知の登録情報を保存できませんでした（サーバーの設定）。サイトの管理者にお知らせください。\n" + tech;
+      }
+      if (/token-subscribe-failed|installations/i.test(code + " " + msg)) {
+        return "通知サービス（Firebase）への登録に失敗しました。時間をおいて、もう一度お試しください。続く場合は、サイトの管理者にお知らせください。\n" + tech;
+      }
+      return "エラーが発生しました。時間をおいて、もう一度お試しください。\n" + tech;
+    }
+
     // ページを開いた時点で、すでに通知が使えない状態なら、先に案内を出しておく
     if (isInApp || (("Notification" in window) && Notification.permission === "denied") ||
         (!("Notification" in window) && isIOS && !isStandalone)) {
       statusEl.textContent = helpText(("Notification" in window) ? "denied" : "unsupported");
+    } else {
+      isBraveBrowser().then((brave) => { if (brave && !statusEl.textContent) statusEl.textContent = BRAVE_NOTE; });
     }
 
     // ---- 通知の登録 ----
@@ -582,6 +627,11 @@
         }
         if (!("serviceWorker" in navigator) || !(await isSupported())) {
           statusEl.textContent = helpText("unsupported");
+          btn.disabled = false;
+          return;
+        }
+        if (!(await isValidVapid(window.VAPID_KEY))) {
+          statusEl.textContent = "通知用の鍵（VAPIDキー）の設定に誤りがあり、通知を登録できません。サイトの管理者にお知らせください。\n（firebase-config.js の VAPID_KEY）";
           btn.disabled = false;
           return;
         }
@@ -608,7 +658,7 @@
         btn.textContent = "登録済みです";
       } catch (err) {
         console.error(err);
-        statusEl.textContent = "エラーが発生しました。時間をおいて再度お試しください。";
+        statusEl.textContent = await describeError(err);
         btn.disabled = false;
       }
     });
