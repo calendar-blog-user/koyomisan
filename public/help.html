@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>通知の登録ができない場合 - こよみさん</title>
+<meta name="theme-color" content="#1F3350">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1F3350;
+    --paper: #F7F3EA;
+    --paper-deep: #EFE8D8;
+    --accent: #C4622D;
+    --line: rgba(31, 51, 80, 0.18);
+  }
+  html { font-size: 112.5%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans JP", sans-serif;
+    line-height: 1.9;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem;
+    padding-top: calc(2.5rem + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+  a { color: var(--accent); text-underline-offset: 0.25em; }
+  .back { margin: 0 0 2rem; font-size: 0.95rem; }
+  h1 {
+    font-family: "Shippori Mincho", serif;
+    font-weight: 700;
+    font-size: 1.9rem;
+    letter-spacing: 0.06em;
+    line-height: 1.5;
+    margin: 0 0 1.2rem;
+  }
+  .lede { font-size: 1rem; color: rgba(31, 51, 80, 0.85); margin: 0 0 2rem; }
+  .toc {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    padding: 1rem 1.2rem;
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+  }
+  .toc ol { margin: 0; padding-left: 1.3rem; }
+  .toc li { margin: 0.2rem 0; }
+  section { padding: 2.2rem 0 0.4rem; border-top: 1px solid var(--line); margin-top: 2.2rem; }
+  h2 {
+    font-family: "Shippori Mincho", serif;
+    font-weight: 500;
+    font-size: 1.25rem;
+    letter-spacing: 0.03em;
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+  h3 { font-size: 1rem; font-weight: 500; color: var(--accent); margin: 1.4rem 0 0.3rem; }
+  p { font-size: 1rem; margin: 0 0 0.9rem; color: rgba(31, 51, 80, 0.9); }
+  ol, ul { font-size: 1rem; margin: 0 0 1rem; padding-left: 1.4rem; color: rgba(31, 51, 80, 0.9); }
+  li { margin-bottom: 0.7rem; }
+  dl { margin: 0 0 1rem; }
+  dt {
+    font-weight: 500;
+    margin-top: 1.3rem;
+    padding: 0.5rem 0.8rem;
+    background: var(--paper-deep);
+    border-left: 3px solid var(--accent);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  dd { margin: 0.5rem 0 0; font-size: 1rem; color: rgba(31, 51, 80, 0.9); }
+  .note {
+    font-size: 0.92rem;
+    color: rgba(31, 51, 80, 0.75);
+    background: var(--paper-deep);
+    padding: 0.7rem 1rem;
+    border-radius: 2px;
+  }
+  .footer-link { margin-top: 3rem; text-align: center; font-size: 1rem; }
+  footer { margin-top: 2.5rem; text-align: center; color: rgba(31, 51, 80, 0.6); }
+  footer p { margin: 0.25rem 0; line-height: 1.7; }
+  footer .presented { font-size: 0.95rem; }
+  footer .copyright { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); }
+</style>
+</head>
+<body>
+<main>
+  <p class="back"><a href="./">← こよみさんにもどる</a></p>
+
+  <h1>通知の登録が<br>できない場合</h1>
+  <p class="lede">「通知を受け取る」を押しても登録できないときは、次の順に確認してください。画面に出たメッセージから、原因が分かることがあります。なお、通知を使わなくても、サイトを開けば、毎日その日の暦をお読みいただけます。</p>
+
+  <nav class="toc" aria-label="このページの内容">
+    <ol>
+      <li><a href="#message">画面に出たメッセージから探す</a></li>
+      <li><a href="#common">どのブラウザでも確認すること</a></li>
+      <li><a href="#iphone">iPhone・iPadをお使いの場合</a></li>
+      <li><a href="#brave">Braveブラウザをお使いの場合</a></li>
+      <li><a href="#notarrive">登録できたのに、通知が届かないとき</a></li>
+      <li><a href="#other">それでも登録できないとき</a></li>
+    </ol>
+  </nav>
+
+  <section id="message">
+    <h2>1. 画面に出たメッセージから探す</h2>
+    <dl>
+      <dt>「通知が、ブロックされています」</dt>
+      <dd>以前に「ブロック」を選んだか、端末の設定で、このサイトの通知が止められています。<a href="#common">「どのブラウザでも確認すること」</a>の1と2をご確認ください。</dd>
+
+      <dt>「通知の許可が選ばれませんでした」</dt>
+      <dd>許可の確認の表示が、選ばれないまま閉じられました。もう一度ボタンを押して、「許可」を選んでください。何度か閉じると、ブラウザが自動でブロックすることがあります。</dd>
+
+      <dt>「アプリ内ブラウザでは、通知を許可できません」</dt>
+      <dd>LINEやSNSなどのアプリの中でページを開いています。Chrome（Android）やSafari（iPhone）などのブラウザで、このページを開き直してください。</dd>
+
+      <dt>「iPhoneでは、先にホーム画面に追加する必要があります」</dt>
+      <dd><a href="#iphone">「iPhone・iPadをお使いの場合」</a>をご覧ください。</dd>
+
+      <dt>「お使いのブラウザは、通知に対応していません」／「通知の仕組みを使えないようです」</dt>
+      <dd>ブラウザが古い、または通知の仕組みを制限している可能性があります。<a href="#common">「どのブラウザでも確認すること」</a>の5〜7、Braveブラウザをお使いの場合は<a href="#brave">こちら</a>をご覧ください。別のブラウザでの登録もお試しください。</dd>
+
+      <dt>「通知サービス（Firebase）への登録に失敗しました」</dt>
+      <dd>通信が制限されているか、一時的に通信できなかった可能性があります。<a href="#common">「どのブラウザでも確認すること」</a>の5と6をご確認のうえ、時間をおいてお試しください。</dd>
+
+      <dt>「通知用の鍵（VAPIDキー）の設定に誤りがあります」／「通知の登録情報を保存できませんでした」</dt>
+      <dd>このサイト側の設定の問題で、お使いの端末では解決できません。お手数ですが、サイトの管理者にお知らせください。</dd>
+
+      <dt>「エラーが発生しました」（技術情報つき）</dt>
+      <dd>原因を特定できなかったエラーです。<a href="#common">「どのブラウザでも確認すること」</a>を上から順にお試しください。続くときは、「技術情報」の文字（例：AbortError）を、サイトの管理者にお知らせください。</dd>
+    </dl>
+  </section>
+
+  <section id="common">
+    <h2>2. どのブラウザでも確認すること</h2>
+    <ol>
+      <li><strong>このサイトの通知が「許可」になっているか。</strong>ブラウザの「サイトの設定」で、このサイト（koyomi.web.app）の通知を確認します。Chrome（Android）なら、アドレスバーの左にあるアイコンをタップ →「権限」または「サイトの設定」→「通知」を「許可」にします。変更したら、ページを再読み込みして、もう一度お試しください。</li>
+      <li><strong>スマホ本体の通知設定がオンか。</strong>「設定」→「アプリ」→ お使いのブラウザ →「通知」がオンか確認します。機種によっては、サイトごとの通知設定（例：koyomi.web.app の「通知を表示」）も、オンか確認してください。</li>
+      <li><strong>シークレットモード（プライベートブラウズ）ではないか。</strong>このモードでは、通知を使えないことがあります。通常のウィンドウで開いてください。</li>
+      <li><strong>アプリ内ブラウザではないか。</strong>LINEやSNSなどのアプリの中で開いていると、通知を許可できません。</li>
+      <li><strong>広告ブロック・追跡防止などが、通信を妨げていないか。</strong>ブラウザの追跡防止機能、広告ブロックの拡張機能、セキュリティアプリなどが、通知サービス（Google）との通信を止めることがあります。このサイトだけ一時的にオフにして、お試しください。</li>
+      <li><strong>VPNや、会社・学校のネットワークを使っていないか。</strong>通信が制限されていると、登録できないことがあります。VPNを切るか、モバイル回線や別のWi-Fiでお試しください。</li>
+      <li><strong>ブラウザと、スマホ（パソコン）のOSが新しいか。</strong>古いと、通知の仕組みに対応していないことがあります。更新してください。</li>
+      <li><strong>ブラウザを、一度完全に終了して開き直す。</strong>アプリの切り替え画面からブラウザを消して、もう一度開いてから、お試しください。</li>
+      <li><strong>このサイトのデータを消して、やり直す。</strong>以前の失敗が残っていることがあります。ブラウザの「サイトの設定」にある、このサイトのデータを削除する操作をしてから、もう一度お試しください。</li>
+    </ol>
+  </section>
+
+  <section id="iphone">
+    <h2>3. iPhone・iPadをお使いの場合</h2>
+    <p>iPhoneでは、Safariでページを開いたままでは、通知を登録できません。次の手順で、ホーム画面に追加したアプリとして開く必要があります（iOS・iPadOS 16.4以降）。</p>
+    <ol>
+      <li>Safariで、このサイトを開く</li>
+      <li>共有ボタン →「ホーム画面に追加」をタップ</li>
+      <li>ホーム画面にできた「こよみさん」のアイコンから開く</li>
+      <li>「通知を受け取る」を押して、「許可」を選ぶ</li>
+    </ol>
+    <p>登録できないときは、「設定」アプリ →「通知」で、ホーム画面に追加した「こよみさん」の通知が許可されているか、ご確認ください。</p>
+  </section>
+
+  <section id="brave">
+    <h2>4. Braveブラウザをお使いの場合</h2>
+    <p>Braveブラウザは、プライバシーを守るために、Googleの通知の仕組み（プッシュ通知）を、標準では制限していることがあります。そのため、ほかのブラウザでは登録できるのに、Braveブラウザだけ登録できないことがあります。次の点をご確認ください。</p>
+    <h3>スマホ版</h3>
+    <ul>
+      <li>Braveブラウザの「設定」→「通知」で、通知がオンになっているか確認する</li>
+      <li>スマホ本体の「設定」で、Braveブラウザの通知と、このサイト（koyomi.web.app）の通知が、オンになっているか確認する（<a href="#common">「どのブラウザでも確認すること」</a>の2）</li>
+    </ul>
+    <h3>パソコン版</h3>
+    <ul>
+      <li>「設定」→「プライバシーとセキュリティ」の中にある、「プッシュ メッセージングに Google サービスを使用する」（Use Google services for push messaging）をオンにして、Braveブラウザを再起動する（表示名は、バージョンによって異なることがあります）</li>
+    </ul>
+    <p class="note">スマホ版のBraveブラウザでは、「プライバシーとセキュリティ」の項目が見当たらないことがあります。その場合は、上の「通知」の確認と、<a href="#common">「どのブラウザでも確認すること」</a>をお試しください。</p>
+    <h3>共通</h3>
+    <ul>
+      <li>追跡防止の機能（Braveブラウザでは「シールド」）が、通信を妨げることがあります。このサイトだけ下げて、お試しください</li>
+      <li>それでも登録できないときは、Chromeなど、ほかのブラウザでお試しください</li>
+    </ul>
+  </section>
+
+  <section id="notarrive">
+    <h2>5. 登録できたのに、通知が届かないとき</h2>
+    <ul>
+      <li><strong>通知は、毎日は届きません。</strong>七十二候の切り替わり、国民の祝日、重要な祭日、主要な年中行事、記念日の日だけです（年におよそ140日、2〜3日に1回ほど）。</li>
+      <li><strong>省電力・バッテリー最適化・自動起動の制限</strong>で、ブラウザが止められていると、通知が届かないことがあります。お使いのブラウザを、制限の対象から外してください（設定の場所は、機種によって異なります）。</li>
+      <li><strong>おやすみモード・通知のまとめ設定</strong>で、通知が表示されていない可能性があります。</li>
+      <li>登録のあとで、ブラウザのデータを消したり、通知の許可を取り消したりした場合は、もう一度「通知を受け取る」から登録してください。</li>
+    </ul>
+  </section>
+
+  <section id="other">
+    <h2>6. それでも登録できないとき</h2>
+    <ul>
+      <li><strong>別のブラウザや端末で、お試しください。</strong>Androidなら Chrome、iPhoneならホーム画面に追加したアイコン、パソコンなら Chrome・Edge・Firefox などです。</li>
+      <li>画面に出た「技術情報」の文字（例：AbortError）をメモして、サイトの管理者にお知らせください。</li>
+      <li>通知が使えなくても、サイトを開けば、毎日その日の暦をお読みいただけます。ホーム画面に追加すると、ワンタップで開けます。</li>
+    </ul>
+  </section>
+
+  <p class="footer-link"><a href="./">← こよみさんにもどる</a></p>
+
+  <footer>
+    <p class="presented">Presented by <a href="https://neoearthlife.com/" target="_blank" rel="noopener">地球生活NEO</a></p>
+    <p class="copyright">© 2026 こよみさん</p>
+  </footer>
+</main>
+</body>
+</html>

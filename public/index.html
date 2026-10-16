@@ -20,6 +20,7 @@
     --line: rgba(31, 51, 80, 0.18);
   }
   * { box-sizing: border-box; }
+  html { font-size: 112.5%; }   /* スマホで読みやすいように、基準の文字を大きくする(16px → 18px) */
   body {
     margin: 0;
     background: var(--paper);
@@ -75,7 +76,7 @@
     margin-bottom: 3rem;
   }
   .today-card .label {
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     letter-spacing: 0.15em;
     color: rgba(31, 51, 80, 0.6);
     margin-bottom: 0.6rem;
@@ -107,23 +108,23 @@
   .today-card .rk-desc { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: rgba(31, 51, 80, 0.72); }
   .sunmoon { margin: 0 0 1.3rem; padding-top: 0.9rem; border-top: 1px dashed var(--line); }
   .sunmoon-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
-  .sunmoon-head label { font-size: 0.78rem; color: rgba(31, 51, 80, 0.65); }
+  .sunmoon-head label { font-size: 0.84rem; color: rgba(31, 51, 80, 0.65); }
   .sunmoon-head select {
     font: inherit; font-size: 1rem; padding: 0.4rem 0.6rem; max-width: 100%;
     background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 2px;
   }
   .sunmoon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem 0.5rem; margin: 0; }
   .sunmoon-grid div { text-align: center; }
-  .sunmoon-grid dt { font-size: 0.72rem; color: rgba(31, 51, 80, 0.6); }
+  .sunmoon-grid dt { font-size: 0.8rem; color: rgba(31, 51, 80, 0.6); }
   .sunmoon-grid dd { margin: 0; font-family: "Shippori Mincho", serif; font-size: 1.2rem; }
   .today-card .today-reasons { font-family: "Shippori Mincho", serif; font-size: 1.02rem; color: var(--accent); margin: 0 0 0.9rem; line-height: 1.7; }
   .today-card .today-reasons:empty { display: none; }
   .today-card .astro-tags { margin: -0.4rem 0 1rem; font-size: 0.8rem; color: var(--accent); }
   .today-card .astro-tags:empty { display: none; }
   .sunmoon-length { margin: 0.9rem 0 0; font-size: 0.82rem; color: rgba(31, 51, 80, 0.8); text-align: center; }
-  .sunmoon-note { font-size: 0.72rem; color: rgba(31, 51, 80, 0.55); margin: 0.8rem 0 0; }
-  .city-status { font-size: 0.78rem; color: rgba(31, 51, 80, 0.7); margin: 0.5rem 0 0; min-height: 1.2em; }
-  .reading .tag { font-size: 0.7rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border: 1px solid var(--line); border-radius: 2px; color: rgba(31, 51, 80, 0.65); white-space: nowrap; }
+  .sunmoon-note { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); margin: 0.8rem 0 0; }
+  .city-status { font-size: 0.84rem; color: rgba(31, 51, 80, 0.7); margin: 0.5rem 0 0; min-height: 1.2em; }
+  .reading .tag { font-size: 0.8rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border: 1px solid var(--line); border-radius: 2px; color: rgba(31, 51, 80, 0.65); white-space: nowrap; }
   .today-meta {
     font-size: 0.82rem;
     color: rgba(31, 51, 80, 0.65);
@@ -161,7 +162,7 @@
     margin: 0 0 0.7rem;
   }
   .reading .sub-label {
-    font-size: 0.78rem;
+    font-size: 0.84rem;
     color: rgba(31, 51, 80, 0.55);
     margin: 0.9rem 0 0.4rem;
   }
@@ -204,7 +205,7 @@
   }
   button.primary:active { opacity: 0.8; }
   button.primary:disabled { opacity: 0.45; cursor: default; }
-  .today-card .stale { font-size: 0.78rem; color: #A33; margin: 0 0 0.8rem; }
+  .today-card .stale { font-size: 0.84rem; color: #A33; margin: 0 0 0.8rem; }
   .today-card .stale:empty { display: none; }
   .status {
     white-space: pre-line;
@@ -213,6 +214,8 @@
     text-align: center;
     min-height: 1.4em;
   }
+  .help-link { margin: 0.4rem 0 0; font-size: 0.95rem; text-align: center; }
+  .help-link a { color: var(--accent); text-underline-offset: 0.25em; }
   .howto {
     margin-top: 3.5rem;
     width: 100%;
@@ -234,10 +237,15 @@
   .howto li { margin-bottom: 0.6rem; }
   footer {
     margin-top: 3rem;
-    font-size: 0.75rem;
-    color: rgba(31, 51, 80, 0.5);
+    color: rgba(31, 51, 80, 0.6);
     text-align: center;
   }
+  footer p { margin: 0.25rem 0; font-size: 0.85rem; line-height: 1.7; }
+  footer .updated { font-size: 0.8rem; color: rgba(31, 51, 80, 0.5); }
+  footer .updated:empty { display: none; }
+  footer .presented { margin-top: 1.4rem; font-size: 0.95rem; }
+  footer .presented a { color: var(--accent); text-underline-offset: 0.25em; }
+  footer .copyright { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); }
 </style>
 </head>
 <body>
@@ -274,6 +282,7 @@
     <div class="cta">
       <button class="primary" id="subscribe-btn">通知を受け取る</button>
       <p class="status" id="status"></p>
+      <p class="help-link"><a href="help.html">登録ができない場合はこちら</a></p>
     </div>
 
     <article class="reading" id="reading"></article>
@@ -290,13 +299,18 @@
       </ol>
     </section>
 
-    <footer>登録なし・無料でご利用いただけます<br><span id="updated"></span></footer>
+    <footer>
+      <p>登録なし・無料でご利用いただけます</p>
+      <p class="updated" id="updated"></p>
+      <p class="presented">Presented by <a href="https://neoearthlife.com/" target="_blank" rel="noopener">地球生活NEO</a></p>
+      <p class="copyright">© 2026 こよみさん</p>
+    </footer>
   </main>
 
   <script src="firebase-config.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-    import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
+    import { getMessaging, getToken, isSupported, onMessage } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
     import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
     const statusEl = document.getElementById("status");
@@ -454,6 +468,30 @@
       renderArticle();
     }
 
+    // ---- ページを開いたまま(画面が表示されている間)に通知が届いたとき ----
+    // ブラウザは、画面が表示されているページには通知を自動では出さず、ページ側に渡すだけになる。
+    // そのため、ここで受け取って、通常の通知と同じように表示する。
+    let foregroundListening = false;
+    async function listenForeground() {
+      if (foregroundListening) return;
+      try {
+        if (!("Notification" in window) || Notification.permission !== "granted" || !("serviceWorker" in navigator) || !(await isSupported())) return;
+        await navigator.serviceWorker.register("firebase-messaging-sw.js");
+        onMessage(getMessaging(app), async (payload) => {
+          const n = payload.notification || {};
+          const registration = await navigator.serviceWorker.ready;
+          registration.showNotification(n.title || "こよみさん", {
+            body: n.body || "",
+            icon: "icon-192.png",
+            data: { link: (payload.fcmOptions && payload.fcmOptions.link) || "./" },
+          });
+        });
+        foregroundListening = true;
+      } catch (e) {
+        console.warn("画面表示中の通知の受信を開始できませんでした", e);
+      }
+    }
+
     // ---- 通知用の「選んだ都市」をサーバー(Firestore)に保存する ----
     async function getTokenIfGranted() {
       if (!("Notification" in window) || Notification.permission !== "granted") return null;
@@ -523,6 +561,7 @@
         document.getElementById("today-stale").textContent = data.date !== jstToday()
           ? `表示しているのは${data.date}の暦です。最新のデータを取得できていない可能性があります。` : "";
         document.getElementById("updated").textContent = data.generated_at ? `データ更新：${data.generated_at}（日本時間）` : "";
+        listenForeground();   // 通知許可済みの端末は、ページを開いている間の通知も表示できるようにする
         // 通知登録済みの端末は、保存している都市と今の都市が違うときだけサーバーに反映する
         if (("Notification" in window) && Notification.permission === "granted" && store.get(SYNCED_KEY) !== currentCity) {
           syncCityIfSubscribed();
@@ -574,11 +613,6 @@
       }
     }
 
-    const isBraveBrowser = async () => !!(navigator.brave && (await navigator.brave.isBrave().catch(() => false)));
-    const BRAVE_NOTE = "Braveでは、通知の仕組み（Googleのプッシュ）が標準で止められています。\n" +
-      "Braveの「設定」→「プライバシーとセキュリティ」→「プッシュメッセージングにGoogleサービスを使用する」（Use Google services for push messaging）をオンにして、Braveを一度終了してから、もう一度お試しください。\n" +
-      "それでも登録できないときは、Chromeでお試しください。";
-
     // 通知の登録で起きたエラーを、原因が分かる案内に変える(最後に技術情報も付ける)
     async function describeError(err) {
       const name = (err && err.name) || "";
@@ -586,7 +620,7 @@
       const msg = String((err && err.message) || err || "");
       const tech = `（技術情報：${[name, code].filter(Boolean).join(" / ") || "不明"}）`;
       if (/push service error/i.test(msg) || name === "AbortError") {
-        return ((await isBraveBrowser()) ? BRAVE_NOTE : "このブラウザでは、通知の登録に失敗しました。ChromeまたはSafariでお試しください。") + "\n" + tech;
+        return "このブラウザ（または端末の設定）では、通知の仕組みを使えないようです。\n下の「登録ができない場合はこちら」で、考えられる原因と対処をご覧ください。\n" + tech;
       }
       if (/applicationServerKey|InvalidAccessError/i.test(name + " " + msg)) {
         return "通知用の鍵（VAPIDキー）の設定に誤りがあります。サイトの管理者にお知らせください。\n" + tech;
@@ -604,8 +638,6 @@
     if (isInApp || (("Notification" in window) && Notification.permission === "denied") ||
         (!("Notification" in window) && isIOS && !isStandalone)) {
       statusEl.textContent = helpText(("Notification" in window) ? "denied" : "unsupported");
-    } else {
-      isBraveBrowser().then((brave) => { if (brave && !statusEl.textContent) statusEl.textContent = BRAVE_NOTE; });
     }
 
     // ---- 通知の登録 ----
@@ -654,6 +686,7 @@
           ua: navigator.userAgent,
         }, { merge: true });
         store.set(SYNCED_KEY, city);
+        listenForeground();
         statusEl.textContent = `通知の登録が完了しました。七十二候の切り替わりや祝日・祭日・年中行事・記念日に、「${DATA ? cityName(city) : city}」の時刻を添えてお届けします。`;
         btn.textContent = "登録済みです";
       } catch (err) {

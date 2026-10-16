@@ -11,6 +11,22 @@ firebase.initializeApp(firebaseConfig);
 // (通知のタイトル・本文・アイコン・タップ時の遷移先は、すべて送信側で指定している)
 firebase.messaging();
 
+// ページが画面表示中に受け取って表示した通知(onMessage経由)をタップしたときに、リンクを開く。
+// FCMが自分で表示した通知(FCM_MSGを持つ)は、FCMのSDKが処理するので、ここでは扱わない。
+self.addEventListener("notificationclick", (event) => {
+  const data = (event.notification && event.notification.data) || {};
+  if (!data.link || data.FCM_MSG) return;
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) return c.focus();
+      }
+      return clients.openWindow(data.link);
+    })
+  );
+});
+
 // ホーム画面に追加(インストール)できるようにするための最小限のキャッシュ処理。
 // 「ネットワーク優先」にして、オンラインの時は常に最新のページ・今日のデータを表示する。
 // (キャッシュ優先にすると、古いindex.htmlが固定されてしまうため)
