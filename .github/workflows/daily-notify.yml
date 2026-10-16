@@ -5,7 +5,12 @@ on:
     # 毎朝、日本時間の6:47ごろに実行する(UTC 21:47)。
     # GitHub Actionsの定期実行は、毎時0分ちょうどに集中して遅れやすいため、少しずらしている。
     - cron: '47 21 * * *'
-  workflow_dispatch: {}  # 手動実行もできるようにしておく(テスト用)
+  workflow_dispatch:     # 手動実行。「Run workflow」で、テスト通知を送るかどうかを選べる
+    inputs:
+      test_notification:
+        description: 'テスト通知を送る(通知の登録ができているかの確認用。チェックを入れると、きっかけのない日でも全員に送る)'
+        type: boolean
+        default: false
 
 jobs:
   notify-and-deploy:
@@ -19,6 +24,10 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
+
+      # 0) 接続情報(firebase-config.js)の書き間違いを検査する。特にVAPIDキーは1文字違うだけで通知を登録できなくなる
+      - name: Check Firebase config
+        run: python check_config.py
 
       # 1) サイトのデータを作る(今日の前日〜14日先。Firebaseの認証は不要)
       - name: Build site data
@@ -35,7 +44,16 @@ jobs:
 
       # 3) 通知のきっかけがある日だけ、購読者に通知する(都市ごとに本文を作り分ける)
       - name: Send push notifications
+        if: ${{ !inputs.test_notification }}
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           SITE_URL: ${{ vars.SITE_URL }}
         run: python notify_fcm.py send
+
+      # 3') 手動実行で「テスト通知」を選んだときだけ、きっかけの有無にかかわらず、全購読者にテスト通知を送る
+      - name: Send test notification
+        if: ${{ inputs.test_notification }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: python notify_fcm.py send --test
