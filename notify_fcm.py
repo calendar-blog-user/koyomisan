@@ -10,6 +10,8 @@
       通知のきっかけ: 二十四節気・七十二候の切り替わり／国民の祝日／重要な祭日／主要な年中行事／記念日
       (雑節・選日・六曜・天文トピックスは、サイトには表示するが通知のきっかけにはしない)。
       通知のタイトルは「今日は〇〇（区分）」の形で、何の日だから通知しているかが分かるようにする。
+  python notify_fcm.py send --test : テスト通知。通知のきっかけの有無にかかわらず、購読者全員に「テスト通知」を送る
+      (通知の登録ができているか、スマホに届くかを確かめるため。GitHub Actionsの手動実行で選べる)
   python notify_fcm.py       : 両方を続けて実行する(従来どおり)
 
 GitHub Actionsでは「build → サイトのデプロイ → send」の順に実行する。通知の送信に失敗しても、
@@ -78,6 +80,16 @@ def build_site_data(today: date, dbs: dict) -> dict:
     return today_data
 
 
+def build_test_message(data: dict, city_id: str):
+    """(タイトル, 本文): 通知が届くことを確かめるためのテスト通知。選んだ都市の時刻も添える。"""
+    city = CITY_BY_ID[city_id]
+    t = data["sun_moon"][city_id]
+    f = lambda v: v if v else "なし"
+    body = (f"通知の登録はできています。\n今日は{data['gregorian_label']}、{data['sekki_name']}・{data['kou_name']}（{data['kou_label']}）です。\n"
+            f"【{city['name']}】日の出 {f(t['sunrise'])}／日の入り {f(t['sunset'])}／月の出 {f(t['moonrise'])}／月の入り {f(t['moonset'])}")
+    return "こよみさんのテスト通知", body
+
+
 def get_subscribers_by_city() -> dict:
     """Firestoreの購読者を、都市ごとにまとめる。都市が未設定・不明な購読者は既定の都市(東京)として扱う。"""
     db = firestore.client()
@@ -129,7 +141,7 @@ def send_to_city(tokens, title, body, click_url) -> tuple:
     return sent, invalid
 
 
-def send_all(groups: dict, full_data: dict, click_url: str) -> int:
+def send_all(groups: dict, full_data: dict, click_url: str, test: bool = False) -> int:
     """都市ごとに通知を送る。ある都市の送信に失敗しても、ほかの都市は送る。失敗した都市の数を返す。"""
     total = sum(len(v) for v in groups.values())
     if total == 0:
@@ -137,7 +149,7 @@ def send_all(groups: dict, full_data: dict, click_url: str) -> int:
         return 0
     sent_total, invalid_all, failed = 0, [], 0
     for city_id, tokens in groups.items():
-        title, body = build_message(full_data, city_id)
+        title, body = build_test_message(full_data, city_id) if test else build_message(full_data, city_id)
         try:
             sent, invalid = send_to_city(tokens, title, body, click_url)
         except Exception as e:   # noqa: BLE001 (原因をログに残して、次の都市へ進む)
@@ -155,7 +167,11 @@ def send_all(groups: dict, full_data: dict, click_url: str) -> int:
     return failed
 
 
-def send_notifications(today: date, full_data: dict) -> int:
+def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
+    if test:
+        print("テスト通知を送ります(通知のきっかけの有無にかかわらず、購読者全員に送信)")
+        init_firebase()
+        return send_all(get_subscribers_by_city(), full_data, os.environ.get("SITE_URL", "/"), test=True)
     reasons = full_data["reasons"]   # 今日が何の日か(通知のきっかけ)
     if not reasons:
         print(f"{today} は「{full_data['sekki_name']}・{full_data['kou_name']}（{full_data['kou_label']}）」の期間中で、"
@@ -167,9 +183,14 @@ def send_notifications(today: date, full_data: dict) -> int:
 
 
 def main(argv=None):
-    mode = (argv if argv is not None else sys.argv[1:] or ["all"])[0]
+    args = list(argv if argv is not None else sys.argv[1:]) or ["all"]
+    test = "--test" in args
+    mode = [a for a in args if not a.startswith("--")][0] if [a for a in args if not a.startswith("--")] else "all"
     if mode not in ("build", "send", "all"):
-        print("使い方: python notify_fcm.py [build|send]", file=sys.stderr)
+        print("使い方: python notify_fcm.py [build|send [--test]]", file=sys.stderr)
+        sys.exit(2)
+    if test and mode != "send":
+        print("--test は send と一緒に指定してください", file=sys.stderr)
         sys.exit(2)
 
     today = today_jst()
@@ -178,7 +199,7 @@ def main(argv=None):
     if mode == "build":
         return
 
-    failed = send_notifications(today, full_data)
+    failed = send_notifications(today, full_data, test=test)
     if failed:
         sys.exit(1)   # 失敗した都市があれば、Actionsの実行を失敗にして気づけるようにする(サイトの更新は済んでいる)
 
