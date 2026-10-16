@@ -33,6 +33,8 @@ from firebase_admin import credentials, firestore, messaging
 from render_koyomi import get_full_data, load_databases, build_message, is_new_kou_day  # is_new_kou_dayは互換のため再公開
 from sunmoon import CITY_BY_ID, DEFAULT_CITY_ID
 
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
 
 JST = timezone(timedelta(hours=9))
@@ -90,6 +92,26 @@ def build_test_message(data: dict, city_id: str):
     return "こよみさんのテスト通知", body
 
 
+def resolve_site_url() -> str:
+    """通知をタップしたときに開くURL。環境変数 SITE_URL を使う。
+    未設定(GitHubの変数が空)や、httpsで始まらない値のままFCMに渡すと、送信が拒否されてしまうため、
+    firebase.json のサイト名(例: koyomi → https://koyomi.web.app)で代用する。"""
+    url = (os.environ.get("SITE_URL") or "").strip()
+    if url.startswith("https://"):
+        return url
+    fallback = None
+    try:
+        with open(os.path.join(ROOT, "firebase.json"), encoding="utf-8") as f:
+            site = json.load(f)["hosting"].get("site")
+        fallback = f"https://{site}.web.app" if site else None
+    except (OSError, ValueError, KeyError):
+        pass
+    print(f"【注意】SITE_URL が未設定か、https で始まっていません(値: {url!r})。"
+          + (f"firebase.json のサイト名から {fallback} を使います。GitHubの Variables の SITE_URL を設定してください。"
+             if fallback else "通知のリンクなしで送ります。GitHubの Variables の SITE_URL を設定してください。"), file=sys.stderr)
+    return fallback or ""
+
+
 def get_subscribers_by_city() -> dict:
     """Firestoreの購読者を、都市ごとにまとめる。都市が未設定・不明な購読者は既定の都市(東京)として扱う。"""
     db = firestore.client()
@@ -120,24 +142,29 @@ def remove_invalid_tokens(invalid_tokens):
 
 
 def send_to_city(tokens, title, body, click_url) -> tuple:
-    """(送信成功数, 無効トークンのリスト)"""
+    """(送信成功数, 無効になった端末のトークンのリスト)。失敗した端末は、理由をログに出す。"""
     invalid, sent = [], 0
     for batch_tokens in chunked(tokens, 500):  # FCMの一括送信は最大500件/回
+        webpush = messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(icon="icon-192.png"),
+            fcm_options=messaging.WebpushFCMOptions(link=click_url) if click_url else None,
+        )
         message = messaging.MulticastMessage(
             notification=messaging.Notification(title=title, body=body),
-            webpush=messaging.WebpushConfig(
-                fcm_options=messaging.WebpushFCMOptions(link=click_url),
-                notification=messaging.WebpushNotification(icon="icon-192.png"),
-            ),
+            webpush=webpush,
             tokens=batch_tokens,
         )
         response = messaging.send_each_for_multicast(message)
         sent += response.success_count
         for idx, resp in enumerate(response.responses):
-            if not resp.success:
-                code = getattr(resp.exception, "code", "")
-                if code in ("NOT_FOUND", "UNREGISTERED", "INVALID_ARGUMENT"):
-                    invalid.append(batch_tokens[idx])
+            if resp.success:
+                continue
+            exc = resp.exception
+            print(f"    送信失敗(端末…{batch_tokens[idx][-6:]}): {type(exc).__name__}: {exc}", file=sys.stderr)
+            # 端末側で通知が解除された・トークンが失効した場合だけ、登録情報を削除する。
+            # (INVALID_ARGUMENT などは、通知の中身や設定の不備でも起こるため、削除しない)
+            if isinstance(exc, messaging.UnregisteredError):
+                invalid.append(batch_tokens[idx])
     return sent, invalid
 
 
@@ -147,6 +174,7 @@ def send_all(groups: dict, full_data: dict, click_url: str, test: bool = False) 
     if total == 0:
         print("購読者がまだいません。通知は送信されませんでした。")
         return 0
+    print("購読者: 合計" + str(total) + "件（" + "、".join(f"{CITY_BY_ID[c]['name']} {len(t)}件" for c, t in groups.items()) + "）")
     sent_total, invalid_all, failed = 0, [], 0
     for city_id, tokens in groups.items():
         title, body = build_test_message(full_data, city_id) if test else build_message(full_data, city_id)
@@ -171,7 +199,7 @@ def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
     if test:
         print("テスト通知を送ります(通知のきっかけの有無にかかわらず、購読者全員に送信)")
         init_firebase()
-        return send_all(get_subscribers_by_city(), full_data, os.environ.get("SITE_URL", "/"), test=True)
+        return send_all(get_subscribers_by_city(), full_data, resolve_site_url(), test=True)
     reasons = full_data["reasons"]   # 今日が何の日か(通知のきっかけ)
     if not reasons:
         print(f"{today} は「{full_data['sekki_name']}・{full_data['kou_name']}（{full_data['kou_label']}）」の期間中で、"
@@ -179,7 +207,7 @@ def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
         return 0
     print("通知のきっかけ: " + "、".join(r["short"] for r in reasons))
     init_firebase()
-    return send_all(get_subscribers_by_city(), full_data, os.environ.get("SITE_URL", "/"))
+    return send_all(get_subscribers_by_city(), full_data, resolve_site_url())
 
 
 def main(argv=None):
