@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>こよみさん 通知の診断</title>
+<style>
+  body { font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.7; margin: 0; padding: 16px; background: #fff; color: #222; }
+  h1 { font-size: 1.2rem; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  button { font-size: 1rem; padding: 12px 20px; border: 0; border-radius: 6px; background: #1f2f4f; color: #fff; }
+  button:disabled { opacity: .5; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #f3f3f3; padding: 12px; border-radius: 6px; font-size: .85rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <h1>通知の診断</h1>
+  <p>下のボタンを押すと、通知の登録を段階ごとに試して、結果を表示します。終わったら、画面全体のスクリーンショットを送ってください。</p>
+  <p><button id="run">診断を始める</button></p>
+  <pre id="out">（まだ実行していません）</pre>
+
+  <script src="firebase-config.js"></script>
+  <script>
+    const out = document.getElementById("out");
+    const btn = document.getElementById("run");
+    const lines = [];
+    function log(s) { lines.push(s); out.textContent = lines.join("\n"); }
+
+    function b64urlToBytes(key) {
+      const b64 = String(key || "").replace(/-/g, "+").replace(/_/g, "/");
+      const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    }
+    function errText(e) {
+      return `${(e && e.name) || "?"} / code=${(e && e.code) || "-"} / ${String((e && e.message) || e).slice(0, 200)}`;
+    }
+
+    // 仮の(使い捨ての)有効なP-256公開鍵を作る。登録の対照実験に使う
+    async function throwawayKey() {
+      const kp = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+      return new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+    }
+
+    async function trySubscribe(reg, label, keyBytes) {
+      try {
+        const old = await reg.pushManager.getSubscription();
+        if (old) { await old.unsubscribe(); log(`  (既存の登録を解除しました)`); }
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes });
+        log(`  ${label}: 成功 (endpointの種類: ${new URL(sub.endpoint).host})`);
+        await sub.unsubscribe();   // 後のFirebaseの登録に影響しないよう、必ず解除する
+        return true;
+      } catch (e) {
+        log(`  ${label}: 失敗 → ${errText(e)}`);
+        return false;
+      }
+    }
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      lines.length = 0;
+      try {
+        log("端末: " + navigator.userAgent);
+        log("日時: " + new Date().toString());
+
+        log("\n[1] 通知の許可");
+        if (!("Notification" in window)) { log("  Notification APIがありません"); return; }
+        const perm = await Notification.requestPermission();
+        log("  結果: " + perm);
+        if (perm !== "granted") return;
+
+        log("\n[2] Service Worker");
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) { log("  非対応です"); return; }
+        const reg = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+        await navigator.serviceWorker.ready;
+        log("  有効になりました (scope: " + reg.scope + ")");
+        log("  active: " + !!reg.active + " / controller: " + !!navigator.serviceWorker.controller);
+
+        log("\n[3] 対照実験: 使い捨ての鍵で登録");
+        const okControl = await trySubscribe(reg, "使い捨ての鍵", await throwawayKey());
+
+        log("\n[4] こよみさんのVAPIDキーで登録");
+        let okVapid = false;
+        try {
+          const kb = b64urlToBytes(window.VAPID_KEY);
+          log("  鍵の長さ: " + kb.length + "バイト / 先頭: " + kb[0]);
+          okVapid = await trySubscribe(reg, "VAPIDキー", kb);
+        } catch (e) {
+          log("  鍵の読み取りに失敗 → " + errText(e));
+        }
+
+        log("\n[まとめ]");
+        if (okControl && okVapid) log("  どちらも成功。ブラウザの登録は問題ありません。");
+        else if (!okControl && !okVapid) log("  どちらも失敗。このサイトのこの端末での登録自体が通っていません。");
+        else if (okControl && !okVapid) log("  使い捨ての鍵は成功、VAPIDキーは失敗。鍵に問題がある可能性があります。");
+        else log("  使い捨ての鍵は失敗、VAPIDキーは成功。（珍しい結果です）");
+      } catch (e) {
+        log("\n途中で失敗: " + errText(e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
