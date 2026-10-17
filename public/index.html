@@ -214,6 +214,12 @@
     text-align: center;
     min-height: 1.4em;
   }
+  button.link {
+    background: none; border: none; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.95rem;
+    color: var(--accent); text-decoration: underline; text-underline-offset: 0.25em; cursor: pointer;
+  }
+  button.link:disabled { opacity: 0.45; cursor: default; }
+  button.link[hidden] { display: none; }
   .help-link { margin: 0.4rem 0 0; font-size: 0.95rem; text-align: center; }
   .help-link a { color: var(--accent); text-underline-offset: 0.25em; }
   .howto {
@@ -282,6 +288,7 @@
     <div class="cta">
       <button class="primary" id="subscribe-btn">通知を受け取る</button>
       <p class="status" id="status"></p>
+      <button class="link" id="unsubscribe-btn" hidden>通知を解除する</button>
       <p class="help-link"><a href="help.html">登録ができない場合はこちら</a></p>
     </div>
 
@@ -295,7 +302,7 @@
         <li>上のボタンから通知を許可すると、七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、記念日に、この端末へ季節の便りが届きます（年に約140日、2〜3日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
         <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
         <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
-        <li>アカウント登録は必要ありません。通知が不要になったら、端末の通知設定からいつでもオフにできます。</li>
+        <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
       </ol>
     </section>
 
@@ -310,11 +317,12 @@
   <script src="firebase-config.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-    import { getMessaging, getToken, isSupported, onMessage } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
+    import { getMessaging, getToken, deleteToken, isSupported, onMessage } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging.js";
     import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
     const statusEl = document.getElementById("status");
     const btn = document.getElementById("subscribe-btn");
+    const unsubBtn = document.getElementById("unsubscribe-btn");
     const citySelect = document.getElementById("city-select");
     const cityStatusEl = document.getElementById("city-status");
 
@@ -471,11 +479,32 @@
     // ---- ページを開いたまま(画面が表示されている間)に通知が届いたとき ----
     // ブラウザは、画面が表示されているページには通知を自動では出さず、ページ側に渡すだけになる。
     // そのため、ここで受け取って、通常の通知と同じように表示する。
+    // ---- この端末に、いま通知の登録(プッシュの購読)があるか ----
+    // 「通知を解除」したあとも、ブラウザの通知の許可は「許可」のまま残る。
+    // 許可だけを見て自動で登録し直してしまわないよう、実際の登録の有無で判断する。
+    async function hasPushSubscription() {
+      try {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) return false;
+        return !!(await reg.pushManager.getSubscription());
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // 登録済みの端末にだけ「通知を解除する」を表示する
+    async function refreshUnsubscribeUI() {
+      const on = ("Notification" in window) && Notification.permission === "granted" && (await hasPushSubscription());
+      unsubBtn.hidden = !on;
+    }
+
     let foregroundListening = false;
     async function listenForeground() {
       if (foregroundListening) return;
       try {
         if (!("Notification" in window) || Notification.permission !== "granted" || !("serviceWorker" in navigator) || !(await isSupported())) return;
+        if (!(await hasPushSubscription())) return;
         await navigator.serviceWorker.register("firebase-messaging-sw.js");
         onMessage(getMessaging(app), async (payload) => {
           const n = payload.notification || {};
@@ -505,7 +534,7 @@
     }
 
     async function syncCityIfSubscribed() {
-      if (!("Notification" in window) || Notification.permission !== "granted") {
+      if (!("Notification" in window) || Notification.permission !== "granted" || !(await hasPushSubscription())) {
         cityStatusEl.textContent = "通知を受け取る場合は、下の「通知を受け取る」から登録してください。選んだ地点の時刻でお届けします。";
         return;
       }
@@ -690,6 +719,7 @@
         }, { merge: true });
         store.set(SYNCED_KEY, city);
         listenForeground();
+        refreshUnsubscribeUI();
         statusEl.textContent = `通知の登録が完了しました。七十二候の切り替わりや祝日・祭日・年中行事・記念日に、「${DATA ? cityName(city) : city}」の時刻を添えてお届けします。`;
         btn.textContent = "登録済みです";
       } catch (err) {
@@ -698,6 +728,40 @@
         btn.disabled = false;
       }
     });
+
+    // ---- 通知の解除 ----
+    // Firebase側のトークンを削除し、ブラウザ側の購読も解除する。
+    // サーバー(Firestore)に残った登録情報は、次回の送信で「失効」と判定されたときに自動で削除される。
+    unsubBtn.addEventListener("click", async () => {
+      if (!window.confirm("この端末への通知を解除します。よろしいですか？")) return;
+      unsubBtn.disabled = true;
+      statusEl.textContent = "通知を解除しています…";
+      try {
+        try {
+          await deleteToken(getMessaging(app));
+        } catch (e) {
+          console.warn("トークンの削除に失敗(ブラウザ側の解除を続けます)", e);
+        }
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        if (sub) await sub.unsubscribe();
+        if (await hasPushSubscription()) throw new Error("subscription still exists");
+        store.set(SYNCED_KEY, "");
+        btn.disabled = false;
+        btn.textContent = "通知を受け取る";
+        unsubBtn.hidden = true;
+        cityStatusEl.textContent = "通知を受け取る場合は、下の「通知を受け取る」から登録してください。選んだ地点の時刻でお届けします。";
+        statusEl.textContent = "通知を解除しました。\n再び受け取りたいときは、上の「通知を受け取る」を押してください。";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "通知を解除できませんでした。時間をおいて、もう一度お試しください。\n解除できない場合は、ブラウザの設定で、このサイトの通知をブロックしてください。";
+      } finally {
+        unsubBtn.disabled = false;
+      }
+    });
+
+    // ページを開いた時点で、登録済みの端末なら解除ボタンを表示する
+    refreshUnsubscribeUI();
   </script>
 </body>
 </html>
