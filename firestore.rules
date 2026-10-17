@@ -1,12 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 通知トークンの登録(新規作成)のみ誰でも可能。
-    // 読み取り・更新・削除はクライアントから一切許可しない(サーバー側のAdmin SDKのみが読み取れる)。
+    // 通知トークンの登録(新規作成)は誰でも可能。
+    // 更新(都市の変更・再登録)は、そのトークン本人の書き込みだけ許可。
+    // 読み取り・削除はクライアントから一切許可しない(Admin SDKのみ可能)。
     match /subscribers/{token} {
       allow create: if request.resource.data.keys().hasAll(["token", "registeredAt"])
                     && request.resource.data.token == token;
-      allow read, update, delete: if false;
+      allow update: if request.resource.data.token == token;
+      allow read, delete: if false;
     }
     // それ以外のコレクションはすべて拒否
     match /{document=**} {
