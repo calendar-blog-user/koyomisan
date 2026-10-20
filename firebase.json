@@ -10,6 +10,14 @@
       {
         "source": "firebase-messaging-sw.js",
         "headers": [{ "key": "Service-Worker-Allowed", "value": "/" }]
+      },
+      {
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**/*.@(html|json|js)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   },
