@@ -12,294 +12,155 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --ink: #1F3350;
-    --paper: #F7F3EA;
-    --paper-deep: #EFE8D8;
-    --accent: #C4622D;
-    --line: rgba(31, 51, 80, 0.18);
-  }
+  :root { --ink:#1F3350; --paper:#F7F3EA; --paper-deep:#EFE8D8; --accent:#C4622D; --green:#2F6B50; --line:rgba(31,51,80,.18); --card:#FFFDF8; }
   * { box-sizing: border-box; }
   html { font-size: 112.5%; }   /* スマホで読みやすいように、基準の文字を大きくする(16px → 18px) */
-  body {
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: "Noto Sans JP", sans-serif;
-    line-height: 1.9;
-    -webkit-font-smoothing: antialiased;
-  }
-  .scroll {
-    max-width: 30rem;
-    margin: 0 auto;
-    padding: 4.5rem 1.75rem 5rem;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  h1 {
-    font-family: "Shippori Mincho", serif;
-    font-weight: 700;
-    font-size: 2.6rem;
-    letter-spacing: 0.08em;
-    margin: 0 0 0.75rem;
-    text-align: center;
-  }
-  .lede {
-    text-align: center;
-    font-size: 0.98rem;
-    color: rgba(31, 51, 80, 0.78);
-    max-width: 24rem;
-    margin: 0 0 3rem;
-  }
-  .divider {
-    width: 1px;
-    height: 2.5rem;
-    background: var(--line);
-    margin-bottom: 3rem;
-  }
-  .today-card {
-    width: 100%;
-    background: var(--paper-deep);
-    border: 1px solid var(--line);
-    border-radius: 2px;
-    padding: 1.75rem 1.5rem;
-    margin-bottom: 3rem;
-  }
-  .today-card .label {
-    font-family: "Shippori Mincho", serif;
-    font-size: 1.5rem;
-    letter-spacing: 0.1em;
-    color: var(--ink);
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-  .today-card .sekki {
-    font-family: "Shippori Mincho", serif;
-    font-size: 1.5rem;
-    margin-bottom: 0.4rem;
-  }
-  .today-card .flow {
-    font-size: 0.9rem;
-    color: rgba(31, 51, 80, 0.85);
-  }
-  .today-card .today-info { font-size: 1.02rem; line-height: 1.9; color: rgba(31, 51, 80, 0.92); margin: 0 0 1rem; }
-  .today-card .today-info .rk-desc { font-size: 0.95rem; }
-  .today-card .month-note {
-    font-size: 0.85rem;
-    color: rgba(31, 51, 80, 0.8);
-    margin-top: 0.9rem;
-    padding-top: 0.9rem;
-    border-top: 1px dashed var(--line);
-    white-space: pre-line;
-  }
-  .today-card .rk-name { font-family: "Shippori Mincho", serif; color: var(--accent); }
-  .today-card .rk-desc { display: block; margin-top: 0.25rem; color: rgba(31, 51, 80, 0.72); }
-  .sunmoon { margin: 0 0 1.3rem; padding-top: 0.9rem; border-top: 1px dashed var(--line); }
-  .sunmoon-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
-  .sunmoon-head label { font-size: 1.02rem; color: rgba(31, 51, 80, 0.65); }
-  .sunmoon-head select {
-    font: inherit; font-size: 1rem; padding: 0.4rem 0.6rem; max-width: 100%;
-    background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 2px;
-  }
-  .sunmoon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem 0.5rem; margin: 0; }
-  .sunmoon-grid div { text-align: center; }
-  .sunmoon-grid dt { font-size: 1.02rem; color: rgba(31, 51, 80, 0.6); }
-  .sunmoon-grid dd { margin: 0; font-family: "Shippori Mincho", serif; font-size: 1.3rem; }
-  .today-card .today-reasons { font-family: "Shippori Mincho", serif; font-size: 1.02rem; color: var(--accent); margin: 0 0 0.9rem; line-height: 1.7; }
-  .today-card .today-reasons:empty { display: none; }
-  .today-card .astro-tags { margin: -0.4rem 0 1rem; font-size: 0.8rem; color: var(--accent); }
-  .today-card .astro-tags:empty { display: none; }
-  .sunmoon-length { margin: 0.9rem 0 0; font-size: 1.02rem; color: rgba(31, 51, 80, 0.8); text-align: center; }
-  .sunmoon-note { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); margin: 0.8rem 0 0; }
-  .city-status { font-size: 0.84rem; color: rgba(31, 51, 80, 0.7); margin: 0.5rem 0 0; min-height: 1.2em; }
-  .reading .tag { font-size: 0.8rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border: 1px solid var(--line); border-radius: 2px; color: rgba(31, 51, 80, 0.65); white-space: nowrap; }
-  .today-meta {
-    font-size: 0.82rem;
-    color: rgba(31, 51, 80, 0.65);
-    margin-bottom: 0.9rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.9rem;
-  }
-  .reading {
-    width: 100%;
-    margin-bottom: 1rem;
-  }
-  .reading section {
-    padding: 2.1rem 0;
-    border-top: 1px solid var(--line);
-  }
-  .reading section:first-child { border-top: none; }
-  .reading .section-head {
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-    margin-bottom: 0.9rem;
-  }
-  .reading .section-head { flex-wrap: wrap; }
-  .reading .section-emoji { font-size: 1.5rem; }
-  .reading h3 {
-    font-family: "Shippori Mincho", serif;
-    font-weight: 500;
-    font-size: 1.5rem;
-    margin: 0;
-    letter-spacing: 0.03em;
-  }
-  .reading p {
-    font-size: 0.92rem;
-    color: rgba(31, 51, 80, 0.88);
-    margin: 0 0 0.7rem;
-  }
-  .reading .sub-label {
-    font-size: 1.02rem;
-    color: rgba(31, 51, 80, 0.55);
-    margin: 0.9rem 0 0.4rem;
-  }
-  .reading ul {
-    margin: 0 0 0.7rem;
-    padding-left: 1.2rem;
-    font-size: 0.88rem;
-    color: rgba(31, 51, 80, 0.82);
-  }
-  .reading li { margin-bottom: 0.4rem; }
-  .reading .catchphrase {
-    font-family: "Shippori Mincho", serif;
-    font-size: 1rem;
-    color: var(--accent);
-    margin-bottom: 0.8rem;
-  }
-  .reading .memorial-name {
-    font-weight: 500;
-    color: var(--accent);
-  }
-  .cta {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.9rem;
-  }
-  button.primary {
-    width: 100%;
-    padding: 1rem 1.5rem;
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    border-radius: 2px;
-    font-family: "Noto Sans JP", sans-serif;
-    font-size: 1rem;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    transition: opacity 0.2s ease;
-  }
-  button.primary:active { opacity: 0.8; }
-  button.primary:disabled { opacity: 0.45; cursor: default; }
-  .today-card .stale { font-size: 0.84rem; color: #A33; margin: 0 0 0.8rem; }
-  .today-card .stale:empty { display: none; }
-  .status {
-    white-space: pre-line;
-    font-size: 0.85rem;
-    color: rgba(31, 51, 80, 0.7);
-    text-align: center;
-    min-height: 1.4em;
-  }
-  button.link {
-    background: none; border: none; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.95rem;
-    color: var(--accent); text-decoration: underline; text-underline-offset: 0.25em; cursor: pointer;
-  }
-  button.link:disabled { opacity: 0.45; cursor: default; }
-  button.link[hidden] { display: none; }
-  .help-link { margin: 0.4rem 0 0; font-size: 0.95rem; text-align: center; }
-  .help-link a { color: var(--accent); text-underline-offset: 0.25em; }
-  .howto {
-    margin-top: 3.5rem;
-    width: 100%;
-    border-top: 1px solid var(--line);
-    padding-top: 2rem;
-  }
-  .howto h2 {
-    font-family: "Shippori Mincho", serif;
-    font-size: 1.1rem;
-    font-weight: 500;
-    margin: 0 0 1rem;
-  }
-  .howto ol {
-    margin: 0;
-    padding-left: 1.3rem;
-    font-size: 0.88rem;
-    color: rgba(31, 51, 80, 0.82);
-  }
-  .howto li { margin-bottom: 0.6rem; }
-  footer {
-    margin-top: 3rem;
-    color: rgba(31, 51, 80, 0.6);
-    text-align: center;
-  }
-  footer p { margin: 0.25rem 0; font-size: 0.85rem; line-height: 1.7; }
-  footer .updated { font-size: 0.8rem; color: rgba(31, 51, 80, 0.5); }
-  footer .updated:empty { display: none; }
-  footer .presented { margin-top: 1.4rem; font-size: 0.95rem; }
-  footer .presented a { color: var(--accent); text-underline-offset: 0.25em; }
-  footer .copyright { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"Noto Sans JP",sans-serif; line-height:1.8; -webkit-font-smoothing:antialiased; }
+  .scroll { max-width:30rem; margin:0 auto; min-height:100dvh; }
+  .hero { position:relative; height:13rem; background:#cfd9e6 url(header.jpg) center 62%/cover; }
+  .hero::after { content:""; position:absolute; inset:0; background:linear-gradient(to bottom, rgba(255,255,255,.35), rgba(255,255,255,0) 55%); }
+  .hero-inner { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; padding:1.2rem 3.5rem 0; }
+  .logo { display:flex; align-items:center; gap:.5rem; }
+  h1 { font-family:"Shippori Mincho",serif; font-weight:700; font-size:2rem; letter-spacing:.08em; margin:0; color:var(--ink); text-shadow:0 1px 10px rgba(255,255,255,.85); }
+  .gear { position:absolute; z-index:2; right:1rem; top:1.1rem; width:2.4rem; height:2.4rem; border-radius:50%; background:rgba(255,253,248,.8); color:var(--ink); display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:1.4rem; line-height:1; }
+  .content { position:relative; z-index:1; margin-top:-5.5rem; padding:0 1rem 4rem; }
+  .card { background:var(--card); border-radius:18px; box-shadow:0 6px 24px rgba(31,51,80,.13); padding:1.3rem 1.2rem; margin-bottom:1rem; }
+  .card h2, .reading-title { font-family:"Shippori Mincho",serif; font-weight:500; font-size:1.5rem; margin:0 0 .8rem; letter-spacing:.03em; }
+  .reading-title { margin:1.8rem .3rem .8rem; }
+  .date-row { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem .7rem; margin-bottom:.5rem; }
+  .date-title { font-family:"Shippori Mincho",serif; font-weight:700; font-size:1.5rem; }
+  .badge { background:var(--accent); color:#fff; border-radius:999px; padding:.05rem .85rem; font-size:1.02rem; white-space:nowrap; }
+  .today-reasons { font-family:"Shippori Mincho",serif; font-size:1.02rem; color:var(--accent); margin:0 0 .4rem; line-height:1.7; }
+  .today-reasons:empty, .stale:empty, .load-msg:empty, .astro-tags:empty, .sunmoon-length:empty, .month-note:empty { display:none; }
+  .stale { font-size:.9rem; color:#A33; margin:0 0 .6rem; }
+  .load-msg { font-size:1.02rem; margin:.5rem 0; }
+  .info-row { display:flex; align-items:center; flex-wrap:wrap; gap:.1rem .7rem; font-size:1.02rem; margin:.35rem 0; }
+  .info-row .k { color:rgba(31,51,80,.6); min-width:5.3em; }
+  .info-row .v { font-family:"Shippori Mincho",serif; font-size:1.3rem; }
+  .moon-ic svg { display:block; width:2.3rem; height:2.3rem; }
+  .tiers { background:var(--paper); border-radius:14px; padding:.2rem 1rem; margin-top:1rem; }
+  .tier { padding:.8rem 0; border-top:1px solid var(--line); }
+  .tier:first-child { border-top:none; }
+  .tier .k { font-size:1.02rem; color:rgba(31,51,80,.6); }
+  .tier .n { font-family:"Shippori Mincho",serif; font-size:1.3rem; color:var(--green); line-height:1.5; }
+  .tier .n small { font-size:1.02rem; color:rgba(31,51,80,.6); margin-left:.4rem; }
+  .tier .d { font-size:.95rem; color:rgba(31,51,80,.78); }
+  .month-note { font-size:.95rem; color:rgba(31,51,80,.8); margin-top:1rem; padding-top:.9rem; border-top:1px dashed var(--line); white-space:pre-line; }
+  .sun-card { background:#E8F0F3; }
+  .sunmoon-head { margin-bottom:.8rem; }
+  .sunmoon-head select { font:inherit; font-size:1rem; padding:.4rem .6rem; max-width:100%; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; }
+  .sunmoon-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.8rem .6rem; margin:0; }
+  .sunmoon-grid dt { font-size:1.02rem; color:rgba(31,51,80,.65); }
+  .sunmoon-grid dd { margin:0; font-family:"Shippori Mincho",serif; font-size:1.4rem; }
+  .sunmoon-length { margin:.9rem 0 0; font-size:1.02rem; color:rgba(31,51,80,.85); }
+  .sunmoon-note { font-size:.8rem; color:rgba(31,51,80,.55); margin:.8rem 0 0; }
+  .city-status { font-size:.9rem; color:rgba(31,51,80,.7); margin:.5rem 0 0; min-height:1.2em; }
+  .astro-row { display:flex; align-items:center; gap:.7rem; font-family:"Shippori Mincho",serif; font-size:1.3rem; }
+  .astro-tags { margin:.5rem 0 0; font-size:1.02rem; color:var(--accent); }
+  .reading details { background:var(--card); border-radius:14px; box-shadow:0 3px 14px rgba(31,51,80,.1); margin-bottom:.7rem; }
+  .reading summary { list-style:none; display:flex; align-items:center; gap:.6rem; padding:1rem 1.1rem; cursor:pointer; }
+  .reading summary::-webkit-details-marker { display:none; }
+  .reading summary::after { content:"›"; margin-left:auto; font-size:1.8rem; line-height:1; color:rgba(31,51,80,.45); transition:transform .2s; }
+  .reading details[open] summary::after { transform:rotate(90deg); }
+  .reading .section-emoji { font-size:1.5rem; }
+  .reading h3 { font-family:"Shippori Mincho",serif; font-weight:500; font-size:1.5rem; margin:0; letter-spacing:.03em; line-height:1.4; }
+  .reading .body { padding:0 1.1rem 1.1rem; border-top:1px solid var(--line); padding-top:1rem; }
+  .reading p { font-size:.92rem; color:rgba(31,51,80,.88); margin:0 0 .7rem; }
+  .reading .sub-label { font-size:1.02rem; color:rgba(31,51,80,.55); margin:.9rem 0 .4rem; }
+  .reading ul { margin:0 0 .7rem; padding-left:1.2rem; font-size:.88rem; color:rgba(31,51,80,.82); }
+  .reading li { margin-bottom:.4rem; }
+  .reading .catchphrase { font-family:"Shippori Mincho",serif; font-size:1rem; color:var(--accent); margin-bottom:.8rem; }
+  .reading .memorial-name { font-weight:500; color:var(--accent); }
+  .reading .tag { font-size:.8rem; margin-left:.5rem; padding:.05rem .45rem; border:1px solid var(--line); border-radius:2px; color:rgba(31,51,80,.65); white-space:nowrap; }
+  .cta { display:flex; flex-direction:column; align-items:center; gap:.9rem; margin-top:2rem; scroll-margin-top:1rem; }
+  button.primary { width:100%; padding:1rem 1.5rem; background:var(--ink); color:var(--paper); border:none; border-radius:12px; font-family:"Noto Sans JP",sans-serif; font-size:1rem; letter-spacing:.05em; cursor:pointer; transition:opacity .2s; }
+  button.primary:active { opacity:.8; }
+  button.primary:disabled { opacity:.45; cursor:default; }
+  .status { white-space:pre-line; font-size:.9rem; color:rgba(31,51,80,.7); text-align:center; min-height:1.4em; margin:0; }
+  button.link { background:none; border:none; padding:.4rem .6rem; font:inherit; font-size:.95rem; color:var(--accent); text-decoration:underline; text-underline-offset:.25em; cursor:pointer; }
+  button.link:disabled { opacity:.45; cursor:default; }
+  button.link[hidden] { display:none; }
+  .help-link { margin:.4rem 0 0; font-size:.95rem; text-align:center; }
+  .help-link a { color:var(--accent); text-underline-offset:.25em; }
+  .howto { margin-top:2.5rem; border-top:1px solid var(--line); padding-top:1.5rem; }
+  .howto h2 { font-family:"Shippori Mincho",serif; font-size:1.1rem; font-weight:500; margin:0 0 1rem; }
+  .howto ol { margin:0; padding-left:1.3rem; font-size:.88rem; color:rgba(31,51,80,.82); }
+  .howto li { margin-bottom:.6rem; }
+  footer { margin-top:2.5rem; color:rgba(31,51,80,.6); text-align:center; }
+  footer p { margin:.25rem 0; font-size:.85rem; line-height:1.7; }
+  footer .updated { font-size:.8rem; color:rgba(31,51,80,.5); }
+  footer .updated:empty { display:none; }
+  footer .presented { margin-top:1.4rem; font-size:.95rem; }
+  footer .presented a { color:var(--accent); text-underline-offset:.25em; }
+  footer .copyright { font-size:.8rem; color:rgba(31,51,80,.55); }
 </style>
 </head>
 <body>
   <main class="scroll">
-    <h1>こよみさん</h1>
-    <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、季節の移ろいに合わせてお届けします。</p>
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="logo">
+          <svg width="34" height="30" viewBox="0 0 34 30" aria-hidden="true"><circle cx="17" cy="14" r="7" fill="#E9A23B"/><g stroke="#E9A23B" stroke-width="2" stroke-linecap="round"><path d="M17 2v3M5 14h3M26 14h3M8.5 5.5l2 2M25.5 5.5l-2 2"/></g><path d="M1 28l10-12 6 7 5-6 11 11z" fill="#2F6B50"/></svg>
+          <h1>こよみさん</h1>
+        </div>
+      </div>
+      <a class="gear" href="#settings" aria-label="通知の設定と使いかた">⚙</a>
+    </header>
 
-    <div class="today-card" id="today-card">
-      <div class="label">今日の暦</div>
-      <div class="today-reasons" id="today-reasons"></div>
-      <p class="stale" id="today-stale"></p>
-      <div class="today-info" id="today-info"></div>
-      <div class="astro-tags" id="today-astro"></div>
-      <div class="sunmoon">
+    <div class="content">
+      <section class="card" id="today-card">
+        <p class="stale" id="today-stale"></p>
+        <div class="load-msg" id="today-sekki">読み込み中…</div>
+        <div class="date-row" id="today-head"></div>
+        <div class="today-reasons" id="today-reasons"></div>
+        <div id="today-info"></div>
+        <div class="tiers" id="today-tiers"></div>
+        <div class="month-note" id="today-month-note"></div>
+      </section>
+
+      <section class="card sun-card">
+        <h2>日の出・日の入り</h2>
         <div class="sunmoon-head">
-          <label for="city-select">地点</label>
           <select id="city-select" aria-label="日の出・日の入り・月の出入りの地点"></select>
         </div>
         <dl class="sunmoon-grid" id="sunmoon-grid"></dl>
         <p class="sunmoon-length" id="sunmoon-length"></p>
         <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。</p>
         <p class="city-status" id="city-status"></p>
+      </section>
+
+      <section class="card">
+        <h2>今日の天文</h2>
+        <div id="astro-body"></div>
+      </section>
+
+      <h2 class="reading-title">今季の読みもの</h2>
+      <article class="reading" id="reading"></article>
+
+      <div class="cta" id="settings">
+        <button class="primary" id="subscribe-btn">通知を受け取る</button>
+        <p class="status" id="status"></p>
+        <button class="link" id="unsubscribe-btn" hidden>通知を解除する</button>
+        <p class="help-link"><a href="help.html">登録ができない場合はこちら</a></p>
       </div>
-      <div class="sekki" id="today-sekki">読み込み中…</div>
-      <div class="flow" id="today-flow"></div>
-      <div class="month-note" id="today-month-note"></div>
+
+      <section class="howto">
+        <h2>使いかた</h2>
+        <ol>
+          <li>上のボタンから通知を許可すると、七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、記念日に、この端末へ季節の便りが届きます（年に約140日、2〜3日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
+          <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
+          <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
+          <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
+        </ol>
+      </section>
+
+      <footer>
+        <p>登録なし・無料でご利用いただけます</p>
+        <p class="updated" id="updated"></p>
+        <p class="presented">Presented by <a href="https://neoearthlife.com/" target="_blank" rel="noopener">地球生活NEO</a></p>
+        <p class="copyright">© 2026 こよみさん</p>
+      </footer>
     </div>
-
-    <div class="divider"></div>
-
-    <div class="cta">
-      <button class="primary" id="subscribe-btn">通知を受け取る</button>
-      <p class="status" id="status"></p>
-      <button class="link" id="unsubscribe-btn" hidden>通知を解除する</button>
-      <p class="help-link"><a href="help.html">登録ができない場合はこちら</a></p>
-    </div>
-
-    <article class="reading" id="reading"></article>
-
-    <div class="divider"></div>
-
-    <section class="howto">
-      <h2>使いかた</h2>
-      <ol>
-        <li>上のボタンから通知を許可すると、七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、記念日に、この端末へ季節の便りが届きます（年に約140日、2〜3日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
-        <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
-        <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
-        <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
-      </ol>
-    </section>
-
-    <footer>
-      <p>登録なし・無料でご利用いただけます</p>
-      <p class="updated" id="updated"></p>
-      <p class="presented">Presented by <a href="https://neoearthlife.com/" target="_blank" rel="noopener">地球生活NEO</a></p>
-      <p class="copyright">© 2026 こよみさん</p>
-    </footer>
   </main>
 
   <script src="firebase-config.js"></script>
@@ -345,34 +206,53 @@
       return c ? c.name : id;
     }
 
+    // 月齢から、月の満ち欠けのアイコン(SVG)を作る
+    function moonSvg(age) {
+      const T = 29.530588;
+      const f = (((age % T) + T) % T) / T;
+      const r = 14, c = 16, p = 2 * Math.PI * f;
+      const rx = (r * Math.abs(Math.cos(p))).toFixed(2);
+      const sweep = Math.cos(p) > 0 ? 0 : 1;
+      const flip = f >= 0.5 ? ' transform="translate(32,0) scale(-1,1)"' : "";
+      return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#1F3350"/>` +
+        `<path d="M${c} ${c - r}A${r} ${r} 0 0 1 ${c} ${c + r}A${rx} ${r} 0 0 ${sweep} ${c} ${c - r}Z" fill="#F6E7B8"${flip}/></svg>`;
+    }
+    const firstSentence = (t) => { const i = (t || "").indexOf("。"); return i >= 0 ? t.slice(0, i + 1) : (t || ""); };
+
     // ---- 今日の暦カード(地点によって変わる部分は、日の出入り・月の出入りの表) ----
     function renderCard() {
       const d = DATA;
-      // 通知のきっかけ(今日は何の日か)。通知のタイトルと同じ言い方
       const rs = d.reasons || [];
-      document.getElementById("today-reasons").textContent = rs.length ? `今日は${rs.map((r) => r.short).join("／")}` : "";
-      const r = d.rokuyo;
+      document.getElementById("today-sekki").textContent = "";
+      document.getElementById("today-head").innerHTML =
+        `<span class="date-title">${esc(d.gregorian_label)}</span>` + (rs.length ? `<span class="badge">${esc(rs[0].name)}</span>` : "");
+      document.getElementById("today-reasons").textContent =
+        rs.length > 1 ? `ほか：${rs.slice(1).map((r) => r.short).join("／")}` : "";
       document.getElementById("today-info").innerHTML =
-        `<div>西暦：${esc(d.gregorian_label)}</div>` +
-        `<div>旧暦：${esc(d.kyureki)}（${esc(d.moon_phase_name)}）</div>` +
-        `<div>日の干支：${esc(d.kanshi)}</div>` +
-        `<div>正午月齢：${esc(d.moon_age_label)}</div>` +
-        `<div>六曜：<span class="rk-name">${esc(r.name)}</span>（${esc(r.yomi)}）― ${esc(r.timing)}` +
-        `<span class="rk-desc">${esc(r.desc)}</span></div>`;
+        `<div class="info-row"><span class="k">旧暦</span><span>${esc(d.kyureki)}</span></div>` +
+        `<div class="info-row"><span class="k">日の干支</span><span>${esc(d.kanshi)}</span></div>` +
+        `<div class="info-row"><span class="k">正午月齢</span><span class="moon-ic">${moonSvg(d.moon_age)}</span>` +
+        `<span class="v">${esc(d.moon_age_label)}</span><span>（${esc(d.moon_phase_name)}）</span></div>`;
+      const r = d.rokuyo;
+      document.getElementById("today-tiers").innerHTML =
+        `<div class="tier"><div class="k">六曜</div><div class="n">${esc(r.name)}<small>（${esc(r.yomi)}）</small></div>` +
+        `<div class="d">${esc(r.timing)}　${esc(r.desc)}</div></div>` +
+        `<div class="tier"><div class="k">二十四節気</div><div class="n">${esc(d.sekki_name)}<small>（${esc(d.sekki_yomi)}）</small></div>` +
+        `<div class="d">${esc(firstSentence(d.sekki_description))}</div></div>` +
+        `<div class="tier"><div class="k">七十二候</div><div class="n">${esc(d.kou_name)}<small>（${esc(d.kou_yomi)}・${esc(d.kou_label)}）</small></div>` +
+        `<div class="d">${esc(firstSentence(d.season_flow))}</div></div>`;
 
       const sm = d.sun_moon[currentCity];
-      const cells = [["日の出", "sunrise"], ["日南中", "solar_noon"], ["日の入り", "sunset"],
-                     ["月の出", "moonrise"], ["月南中", "moon_transit"], ["月の入り", "moonset"]];
+      const cells = [["🌅 日の出", "sunrise"], ["🌇 日の入り", "sunset"], ["🌙 月の出", "moonrise"],
+                     ["🌘 月の入り", "moonset"], ["☀️ 日南中", "solar_noon"], ["🌓 月南中", "moon_transit"]];
       document.getElementById("sunmoon-grid").innerHTML =
         cells.map(([label, key]) => `<div><dt>${label}</dt><dd>${esc(sm[key] || "—")}</dd></div>`).join("");
       document.getElementById("sunmoon-length").innerHTML =
         sm.day_length ? `昼の長さ ${esc(sm.day_length)}<br>（${esc(sm.day_diff)}）` : "";
       const tags = (d.astro && d.astro.tags) || [];
-      document.getElementById("today-astro").textContent = tags.length ? `今日の天文：${tags.join("／")}` : "";
-
-      document.getElementById("today-sekki").textContent =
-        `${d.sekki_name}（${d.sekki_yomi}）・${d.kou_name}（${d.kou_label}）`;
-      document.getElementById("today-flow").textContent = d.season_flow || "";
+      document.getElementById("astro-body").innerHTML =
+        `<div class="astro-row"><span class="moon-ic">${moonSvg(d.moon_age)}</span><span>${esc(d.moon_phase_name)}</span></div>` +
+        (tags.length ? `<p class="astro-tags">${esc(tags.join("／"))}</p>` : "");
       if (d.kyureki_month_name) {
         const monthLine = `旧暦${d.is_leap_month ? "閏" : ""}${d.kyureki_month_num}月は「${d.kyureki_month_name}（${d.kyureki_month_yomi}）」。${d.kyureki_month_description}`;
         document.getElementById("today-month-note").textContent =
@@ -449,14 +329,11 @@
         ["🎼", "伝統芸能", `<p>${esc(data.performing_art)}</p>`],
       ];
 
-      document.getElementById("reading").innerHTML = sections.map(([emoji, title, body]) => `
-        <section>
-          <div class="section-head">
-            <span class="section-emoji">${emoji}</span>
-            <h3>${title}</h3>
-          </div>
-          ${body}
-        </section>
+      document.getElementById("reading").innerHTML = sections.map(([emoji, title, body], i) => `
+        <details${i === 0 ? " open" : ""}>
+          <summary><span class="section-emoji">${emoji}</span><h3>${title}</h3></summary>
+          <div class="body">${body}</div>
+        </details>
       `).join("");
     }
 
