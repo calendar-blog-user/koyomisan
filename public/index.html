@@ -38,14 +38,6 @@
     flex-direction: column;
     align-items: center;
   }
-  .kanji-mark {
-    writing-mode: vertical-rl;
-    font-family: "Shippori Mincho", serif;
-    font-size: 1.05rem;
-    letter-spacing: 0.4em;
-    color: var(--accent);
-    margin-bottom: 2.25rem;
-  }
   h1 {
     font-family: "Shippori Mincho", serif;
     font-weight: 700;
@@ -76,10 +68,12 @@
     margin-bottom: 3rem;
   }
   .today-card .label {
-    font-size: 0.8rem;
-    letter-spacing: 0.15em;
-    color: rgba(31, 51, 80, 0.6);
-    margin-bottom: 0.6rem;
+    font-family: "Shippori Mincho", serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 1rem;
   }
   .today-card .sekki {
     font-family: "Shippori Mincho", serif;
@@ -90,11 +84,8 @@
     font-size: 0.9rem;
     color: rgba(31, 51, 80, 0.85);
   }
-  .today-card .gregorian {
-    font-size: 0.8rem;
-    color: rgba(31, 51, 80, 0.6);
-    margin-bottom: 0.3rem;
-  }
+  .today-card .today-info { font-size: 1.02rem; line-height: 1.9; color: rgba(31, 51, 80, 0.92); margin: 0 0 1rem; }
+  .today-card .today-info .rk-desc { font-size: 0.95rem; }
   .today-card .month-note {
     font-size: 0.85rem;
     color: rgba(31, 51, 80, 0.8);
@@ -103,25 +94,24 @@
     border-top: 1px dashed var(--line);
     white-space: pre-line;
   }
-  .today-card .rokuyo { margin: 0.1rem 0 1rem; font-size: 0.85rem; color: rgba(31, 51, 80, 0.85); }
-  .today-card .rk-name { font-family: "Shippori Mincho", serif; font-size: 1.05rem; color: var(--accent); margin-right: 0.4rem; }
-  .today-card .rk-desc { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: rgba(31, 51, 80, 0.72); }
+  .today-card .rk-name { font-family: "Shippori Mincho", serif; color: var(--accent); }
+  .today-card .rk-desc { display: block; margin-top: 0.25rem; color: rgba(31, 51, 80, 0.72); }
   .sunmoon { margin: 0 0 1.3rem; padding-top: 0.9rem; border-top: 1px dashed var(--line); }
   .sunmoon-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
-  .sunmoon-head label { font-size: 0.84rem; color: rgba(31, 51, 80, 0.65); }
+  .sunmoon-head label { font-size: 1.02rem; color: rgba(31, 51, 80, 0.65); }
   .sunmoon-head select {
     font: inherit; font-size: 1rem; padding: 0.4rem 0.6rem; max-width: 100%;
     background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 2px;
   }
   .sunmoon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem 0.5rem; margin: 0; }
   .sunmoon-grid div { text-align: center; }
-  .sunmoon-grid dt { font-size: 0.8rem; color: rgba(31, 51, 80, 0.6); }
-  .sunmoon-grid dd { margin: 0; font-family: "Shippori Mincho", serif; font-size: 1.2rem; }
+  .sunmoon-grid dt { font-size: 1.02rem; color: rgba(31, 51, 80, 0.6); }
+  .sunmoon-grid dd { margin: 0; font-family: "Shippori Mincho", serif; font-size: 1.3rem; }
   .today-card .today-reasons { font-family: "Shippori Mincho", serif; font-size: 1.02rem; color: var(--accent); margin: 0 0 0.9rem; line-height: 1.7; }
   .today-card .today-reasons:empty { display: none; }
   .today-card .astro-tags { margin: -0.4rem 0 1rem; font-size: 0.8rem; color: var(--accent); }
   .today-card .astro-tags:empty { display: none; }
-  .sunmoon-length { margin: 0.9rem 0 0; font-size: 0.82rem; color: rgba(31, 51, 80, 0.8); text-align: center; }
+  .sunmoon-length { margin: 0.9rem 0 0; font-size: 1.02rem; color: rgba(31, 51, 80, 0.8); text-align: center; }
   .sunmoon-note { font-size: 0.8rem; color: rgba(31, 51, 80, 0.55); margin: 0.8rem 0 0; }
   .city-status { font-size: 0.84rem; color: rgba(31, 51, 80, 0.7); margin: 0.5rem 0 0; min-height: 1.2em; }
   .reading .tag { font-size: 0.8rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border: 1px solid var(--line); border-radius: 2px; color: rgba(31, 51, 80, 0.65); white-space: nowrap; }
@@ -148,11 +138,12 @@
     gap: 0.6rem;
     margin-bottom: 0.9rem;
   }
-  .reading .section-emoji { font-size: 1.05rem; }
+  .reading .section-head { flex-wrap: wrap; }
+  .reading .section-emoji { font-size: 1.5rem; }
   .reading h3 {
     font-family: "Shippori Mincho", serif;
     font-weight: 500;
-    font-size: 1.02rem;
+    font-size: 1.5rem;
     margin: 0;
     letter-spacing: 0.03em;
   }
@@ -162,7 +153,7 @@
     margin: 0 0 0.7rem;
   }
   .reading .sub-label {
-    font-size: 0.84rem;
+    font-size: 1.02rem;
     color: rgba(31, 51, 80, 0.55);
     margin: 0.9rem 0 0.4rem;
   }
@@ -256,7 +247,6 @@
 </head>
 <body>
   <main class="scroll">
-    <div class="kanji-mark">暦</div>
     <h1>こよみさん</h1>
     <p class="lede">旧暦・月齢・二十四節気・七十二候。<br>日本の暦と季節の便りを、季節の移ろいに合わせてお届けします。</p>
 
@@ -264,9 +254,7 @@
       <div class="label">今日の暦</div>
       <div class="today-reasons" id="today-reasons"></div>
       <p class="stale" id="today-stale"></p>
-      <div class="gregorian" id="today-gregorian"></div>
-      <div class="today-meta" id="today-meta"></div>
-      <div class="rokuyo" id="today-rokuyo"></div>
+      <div class="today-info" id="today-info"></div>
       <div class="astro-tags" id="today-astro"></div>
       <div class="sunmoon">
         <div class="sunmoon-head">
@@ -363,21 +351,22 @@
       // 通知のきっかけ(今日は何の日か)。通知のタイトルと同じ言い方
       const rs = d.reasons || [];
       document.getElementById("today-reasons").textContent = rs.length ? `今日は${rs.map((r) => r.short).join("／")}` : "";
-      document.getElementById("today-gregorian").textContent = `西暦 ${d.gregorian_label}`;
-      document.getElementById("today-meta").textContent =
-        `旧暦 ${d.kyureki}（${d.moon_phase_name}）　日の干支 ${d.kanshi}　正午月齢 ${d.moon_age_label}`;
       const r = d.rokuyo;
-      document.getElementById("today-rokuyo").innerHTML =
-        `<span class="rk-name">${esc(r.name)}</span>六曜（${esc(r.yomi)}）：${esc(r.timing)}` +
-        `<span class="rk-desc">${esc(r.desc)}</span>`;
+      document.getElementById("today-info").innerHTML =
+        `<div>西暦：${esc(d.gregorian_label)}</div>` +
+        `<div>旧暦：${esc(d.kyureki)}（${esc(d.moon_phase_name)}）</div>` +
+        `<div>日の干支：${esc(d.kanshi)}</div>` +
+        `<div>正午月齢：${esc(d.moon_age_label)}</div>` +
+        `<div>六曜：<span class="rk-name">${esc(r.name)}</span>（${esc(r.yomi)}）― ${esc(r.timing)}` +
+        `<span class="rk-desc">${esc(r.desc)}</span></div>`;
 
       const sm = d.sun_moon[currentCity];
       const cells = [["日の出", "sunrise"], ["日南中", "solar_noon"], ["日の入り", "sunset"],
                      ["月の出", "moonrise"], ["月南中", "moon_transit"], ["月の入り", "moonset"]];
       document.getElementById("sunmoon-grid").innerHTML =
         cells.map(([label, key]) => `<div><dt>${label}</dt><dd>${esc(sm[key] || "—")}</dd></div>`).join("");
-      document.getElementById("sunmoon-length").textContent =
-        sm.day_length ? `昼の長さ ${sm.day_length}（${sm.day_diff}）` : "";
+      document.getElementById("sunmoon-length").innerHTML =
+        sm.day_length ? `昼の長さ ${esc(sm.day_length)}<br>（${esc(sm.day_diff)}）` : "";
       const tags = (d.astro && d.astro.tags) || [];
       document.getElementById("today-astro").textContent = tags.length ? `今日の天文：${tags.join("／")}` : "";
 
@@ -403,7 +392,7 @@
         ...(data.events || []).map((it) => itemHtml(it, "年中行事")),
         ...(data.kinenbi || []).map((it) => itemHtml(it, "記念日")),
       ];
-      const dayHtml = dayParts.length ? dayParts.join("") : `<p>この日に該当する祝日・行事・記念日はありません。</p>`;
+      const dayHtml = dayParts.length ? dayParts.join("") : `<p>この日に該当する祝日・行事・祭事・記念日はありません。</p>`;
 
       const sekkiParts = [
         ...(data.zassetsu || []).map((it) => itemHtml(it, "雑節")),
