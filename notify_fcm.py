@@ -148,6 +148,11 @@ def send_to_city(tokens, title, body, click_url) -> tuple:
     invalid, sent = [], 0
     for batch_tokens in chunked(tokens, 500):  # FCMの一括送信は最大500件/回
         webpush = messaging.WebpushConfig(
+            # Urgency=high: スマホがスリープ(Doze)中でも、すぐ届けるように依頼する
+            #   (指定しないと通常の優先度になり、スマホが動き出すまで配信が待たされることがある)
+            # TTL=43200(12時間): 電波が届かなかった端末には、12時間以内に届ける。それ以降は破棄
+            #   (「今日は〇〇」という通知が、翌日以降に届いてしまうのを防ぐ)
+            headers={"Urgency": "high", "TTL": "43200"},
             notification=messaging.WebpushNotification(icon="icon-192.png"),
             fcm_options=messaging.WebpushFCMOptions(link=click_url) if click_url else None,
         )
