@@ -340,7 +340,8 @@ def day_calendar_info(d: date, kyureki: dict = None) -> dict:
 
 def notification_items(info: dict) -> list:
     """通知のきっかけになる項目(国民の祝日 → 重要な祭日 → 主要な年中行事 → 記念日の順)。
-    雑節・一粒万倍日・六曜は通知のきっかけにしない。"""
+    雑節・選日・一粒万倍日は、ここではなく render_koyomi.build_reasons() で、
+    calendar_data.py の設定(NOTIFY_ZASSETSU など)に従って加える。六曜は通知のきっかけにしない。"""
     items = []
     items += info["holidays"]
     items += info["saijitsu"]

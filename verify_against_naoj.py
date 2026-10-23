@@ -211,11 +211,27 @@ report(f"昼の長さ(東京) 暦要項2026・2027年 {len(rows)}日: 全日±1�
 # =====================================================================
 # 追加: 通知のタイトル・本文(「今日は何の日だから通知しているか」が分かるか)
 # =====================================================================
-from render_koyomi import build_message, get_full_data, load_databases
+from render_koyomi import build_message, build_reasons, get_full_data, load_databases
+import calendar_data as cd
 _dbs = load_databases()
+_fd_cache = {}
+def _fd(d):
+    """その日の構造化データ(1日1回だけ計算して使い回す。ここでは雑節・選日・一粒万倍日がONの状態の結果)"""
+    if d not in _fd_cache:
+        _fd_cache[d] = get_full_data(d, _dbs)
+    return _fd_cache[d]
+
+# 雑節・選日・一粒万倍日の通知設定(calendar_data.py)。従来のきっかけだけの検査では、いったんOFFにする
+_ON = (cd.NOTIFY_ZASSETSU, cd.NOTIFY_ICHIRYU_MANBAI, dict(cd.NOTIFY_SENJITSU))
+def _set_extra(on):
+    cd.NOTIFY_ZASSETSU = on
+    cd.NOTIFY_ICHIRYU_MANBAI = on
+    cd.NOTIFY_SENJITSU = {k: on for k in _ON[2]}
+def _restore_extra():
+    cd.NOTIFY_ZASSETSU, cd.NOTIFY_ICHIRYU_MANBAI, cd.NOTIFY_SENJITSU = _ON[0], _ON[1], dict(_ON[2])
 
 def _msg(y, m, d):
-    fd = get_full_data(date(y, m, d), _dbs)
+    fd = get_full_data(date(y, m, d), _dbs)   # 設定(ON/OFF)を切り替えて確かめるため、ここだけは使い回さない
     return fd, build_message(fd, "okayama")
 
 TITLE_CASES = {   # 日付: (期待するタイトル, 本文に含まれるべき語)
@@ -228,14 +244,16 @@ TITLE_CASES = {   # 日付: (期待するタイトル, 本文に含まれるべ�
     (2026, 5, 6): ("今日は「振替休日」（休日）", ["■休日「振替休日」"]),
     (2026, 1, 1): ("今日は「元日」（国民の祝日） ほか1件", ["■国民の祝日「元日」", "■重要な祭日「歳旦祭」"]),
 }
+_set_extra(False)   # 従来のきっかけ(雑節・選日・一粒万倍日を除く)だけで確かめる
 for (y, m, dd), (title, words) in TITLE_CASES.items():
     fd, (t, b) = _msg(y, m, dd)
     report(f"通知タイトル {y}/{m}/{dd}: {title}", t == title and all(w in b for w in words) and "【岡山市】日の出" in b, f"{t}")
+_restore_extra()
 
-# 通知する日(2026〜2028年の全日)について、通知文が崩れていないか
+# 通知する日(2026〜2028年の全日)について、通知文が崩れていないか(雑節・選日・一粒万倍日も含めて)
 bad, longest, most, days, d = [], 0, 0, 0, date(2026, 1, 1)
 while d.year <= 2028:
-    fd = get_full_data(d, _dbs)
+    fd = _fd(d)
     if fd["reasons"]:
         days += 1 if d.year == 2026 else 0
         t, b = build_message(fd, "tokyo")
@@ -249,7 +267,89 @@ while d.year <= 2028:
             pass
     d += timedelta(days=1)
 report(f"通知文: 2026〜2028年の全日付で、タイトルが「今日は…」で始まり本文も崩れない(最長タイトル{longest}字・1日のきっかけ最大{most}件)", not bad and longest <= 45, str(bad[:3]))
-report("通知する日数 2026年 = 139日(今回の変更で通知の頻度は変わらない)", days == 139, str(days))
+
+# =====================================================================
+# 追加: 雑節・選日・一粒万倍日を通知のきっかけに加えた分
+# =====================================================================
+import collections
+RANK = {"国民の祝日": 0, "休日": 0, "二十四節気": 1, "重要な祭日": 2, "年中行事": 3, "雑節": 4,
+        "天赦日": 5, "記念日": 6, "七十二候": 7, "選日": 8, "一粒万倍日": 9}
+def _rank(r):
+    return RANK["天赦日"] if r["name"] == "天赦日" else RANK["一粒万倍日"] if r["name"] == "一粒万倍日" else RANK[r["label"]]
+
+def _scan(years=(2026, 2027, 2028)):
+    """全日付で、(雑節・選日・一粒万倍日の項目が通知のきっかけに入っているか)と、(きっかけの並び順)を調べる"""
+    missing, order_bad, extra_days, all_days = [], [], set(), set()
+    d = date(years[0], 1, 1)
+    while d.year <= years[-1]:
+        fd = _fd(d)
+        names = {(r["label"], r["name"]) for r in fd["reasons"]}
+        want = [("雑節", z["name"]) for z in fd["zassetsu"]] + [("選日", z["name"]) for z in fd["senjitsu"]] \
+               + ([("選日", "一粒万倍日")] if fd["ichiryu_manbai"] else [])
+        if want:
+            extra_days.add(d)
+        missing += [(d, w) for w in want if w not in names]
+        ranks = [_rank(r) for r in fd["reasons"]]
+        if ranks != sorted(ranks):
+            order_bad.append((d, [r["short"] for r in fd["reasons"]]))
+        if fd["reasons"]:
+            all_days.add(d)
+        d += timedelta(days=1)
+    return missing, order_bad, extra_days, all_days
+
+missing, order_bad, extra_days, all_days = _scan()
+report("雑節・選日・一粒万倍日(2026〜2028年のすべての該当日)が、通知のきっかけに入っている", not missing, str(missing[:3]))
+report("きっかけの並び順: 祝日 → 節気 → 祭日 → 年中行事 → 雑節 → 天赦日 → 記念日 → 七十二候 → 選日 → 一粒万倍日(全日付)", not order_bad, str(order_bad[:2]))
+
+# 2026年の通知する日数: 従来のきっかけだけの日数と、雑節・選日・一粒万倍日を足した日数
+def _days_2026():
+    s, d = set(), date(2026, 1, 1)
+    while d.year == 2026:
+        if build_reasons(_fd(d)):   # 今の設定(ON/OFF)でのきっかけ。暦の計算は使い回す
+            s.add(d)
+        d += timedelta(days=1)
+    return s
+all_2026 = _days_2026()
+_set_extra(False); base_2026 = _days_2026(); _restore_extra()
+extra_2026 = {d for d in extra_days if d.year == 2026}
+report("通知する日数 2026年(従来のきっかけだけ) = 139日", len(base_2026) == 139,
+       f"{len(base_2026)}日  ← 139日と合わないときは、memorial_days.jsonl が整理前の古い版でないか確認する")
+report("通知する日数 2026年(雑節・選日・一粒万倍日を加えた) = 従来の日数 + 新しく加わった日数", all_2026 == base_2026 | extra_2026, f"{len(all_2026)}日")
+print(f"      (2026年: 従来 {len(base_2026)}日 → 加えたあと {len(all_2026)}日 / 加わった日 {len(all_2026 - base_2026)}日)")
+
+# 種類ごとのON/OFF: OFFにした種類だけが、きっかけから外れる
+def _labels_2026(kind_filter):
+    out, d = collections.Counter(), date(2026, 1, 1)
+    while d.year == 2026:
+        for r in build_reasons(_fd(d)):
+            if kind_filter(r):
+                out[r["name"]] += 1
+        d += timedelta(days=1)
+    return out
+is_sen = lambda r: r["label"] == "選日"
+for key in ("不成就日", "寅の日", "巳の日", "己巳の日", "天赦日"):
+    cd.NOTIFY_SENJITSU[key] = False
+    off = _labels_2026(is_sen)
+    cd.NOTIFY_SENJITSU[key] = True
+    on = _labels_2026(is_sen)
+    report(f"設定: 選日「{key}」だけOFFにすると、その通知だけが外れる", key not in off and off[key] == 0 and on[key] > 0
+           and all(off[k] == on[k] for k in on if k != key))
+cd.NOTIFY_ICHIRYU_MANBAI = False
+off = _labels_2026(is_sen); cd.NOTIFY_ICHIRYU_MANBAI = True
+report("設定: 一粒万倍日だけOFFにすると、その通知だけが外れる", "一粒万倍日" not in off)
+cd.NOTIFY_ZASSETSU = False
+off = _labels_2026(lambda r: r["label"] == "雑節"); cd.NOTIFY_ZASSETSU = True
+report("設定: 雑節をOFFにすると、雑節の通知が外れる", not off)
+_restore_extra()
+
+# 代表的な日の通知文(雑節・選日)。きっかけが日付だけで決まる日を選んでいる
+NEW_CASES = {
+    (2026, 10, 22): ("今日は「己巳の日」（選日）", ["■選日「己巳の日」"]),
+    (2026, 3, 20): ("今日は「春分の日」（国民の祝日） ほか5件", ["■雑節「彼岸の中日」", "ほか1件"]),
+}
+for (y, m, dd), (title, words) in NEW_CASES.items():
+    fd, (t, b) = _msg(y, m, dd)
+    report(f"通知タイトル {y}/{m}/{dd}: {title}", t == title and all(w in b for w in words) and "【岡山市】日の出" in b, f"{t}")
 
 print()
 print("結果: すべてOK" if NG == 0 else f"結果: NGが{NG}件あります")

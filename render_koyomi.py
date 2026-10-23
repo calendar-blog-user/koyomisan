@@ -78,10 +78,13 @@ def first_sentence(text: str, limit: int = 60, min_len: int = 25) -> str:
 
 def build_reasons(data: dict) -> list:
     """通知のきっかけ(=今日が何の日か)を、重要な順に並べて返す。
-    順番: 国民の祝日 → 二十四節気 → 重要な祭日 → 主要な年中行事 → 記念日 → 七十二候(次候・末候)
+    順番: 国民の祝日 → 二十四節気 → 重要な祭日 → 主要な年中行事 → 雑節 → 天赦日 → 記念日
+          → 七十二候(次候・末候) → 選日(寅の日・巳の日・己巳の日・不成就日) → 一粒万倍日
       short : 「文化の日」（国民の祝日）のような短い言い方(タイトル・サイトの見出し用)
       line  : 通知の本文に1行ずつ並べる説明
-    雑節・選日・六曜・天文トピックスは、通知のきっかけにしない。"""
+    雑節・選日・一粒万倍日は、calendar_data.py の NOTIFY_ZASSETSU / NOTIFY_SENJITSU /
+    NOTIFY_ICHIRYU_MANBAI で、種類ごとに通知のきっかけにするかどうかを切り替えられる。
+    六曜・天文トピックスは、通知のきっかけにしない。"""
     items = data["notify_items"]
 
     def item_reason(it):
@@ -97,6 +100,14 @@ def build_reasons(data: dict) -> list:
     events = [item_reason(i) for i in items if i["category"] == "年中行事"]
     kinenbi = [item_reason(i) for i in items if i["category"] == "記念日"]
 
+    # 雑節・選日・一粒万倍日(calendar_data.py の設定でONにした種類だけ)
+    zassetsu = [item_reason(i) for i in data["zassetsu"]] if cd.NOTIFY_ZASSETSU else []
+    senjitsu = [i for i in data["senjitsu"] if cd.NOTIFY_SENJITSU.get(i["name"], False)]
+    tenshanichi = [item_reason(i) for i in senjitsu if i["name"] == "天赦日"]
+    senjitsu_other = [item_reason(i) for i in senjitsu if i["name"] != "天赦日"]
+    ichiryu = ([item_reason({**data["ichiryu_manbai"], "category": "選日"})]   # 一粒万倍日も、選日の一つとして表示する
+               if data["ichiryu_manbai"] and cd.NOTIFY_ICHIRYU_MANBAI else [])
+
     sekki, kou = [], []
     if data["kou_changed"]:
         if data["kou_label"] == "初候":
@@ -108,7 +119,7 @@ def build_reasons(data: dict) -> list:
             kou.append({"kind": "kou", "label": "七十二候", "name": data["kou_name"],
                         "short": f"七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり",
                         "line": f"■七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり：{first_sentence(data['season_flow'], 70)}"})
-    return holidays + sekki + saijitsu + events + kinenbi + kou
+    return holidays + sekki + saijitsu + events + zassetsu + tenshanichi + kinenbi + kou + senjitsu_other + ichiryu
 
 
 def build_message(data: dict, city_id: str):
