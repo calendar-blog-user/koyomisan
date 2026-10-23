@@ -33,8 +33,11 @@ jobs:
       - name: Build site data
         run: python notify_fcm.py build
 
-      # 2) サイトを更新する。通知の送信より先に行うので、通知の送信で問題が起きても、サイトの日付は更新される
+      # 2) サイトを更新する。通知の送信より先に行うので、通知の送信で問題が起きても、サイトの日付は更新される。
+      #    公開に失敗しても、通知は送る(continue-on-error)。失敗した事実は、最後のステップで実行全体を失敗にして残す
       - name: Deploy to Firebase Hosting
+        id: deploy
+        continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -57,3 +60,10 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           SITE_URL: ${{ vars.SITE_URL }}
         run: python notify_fcm.py send --test
+
+      # 4) サイトの公開に失敗していた場合は、通知を送ったあとで、実行全体を失敗にして気づけるようにする
+      - name: Fail the run if the deploy failed
+        if: ${{ always() && steps.deploy.outcome == 'failure' }}
+        run: |
+          echo "::error::Firebase Hostingへの公開に失敗しました(通知は送信済みです)。サイトの内容が更新されていません。"
+          exit 1
