@@ -167,7 +167,7 @@
       <section class="howto">
         <h2>使いかた</h2>
         <ol>
-          <li>上のボタンから通知を許可すると、七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、記念日に、この端末へ季節の便りが届きます（年に約140日、2〜3日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
+          <li>上のボタンから通知を許可すると、二十四節気・七十二候が移り変わる日、国民の祝日、重要な祭日、主要な年中行事、雑節、選日（天赦日・寅の日・巳の日・己巳の日・不成就日）、一粒万倍日、記念日に、この端末へ季節の便りが届きます（年に約240日、1〜2日に1回ほど）。サイトを開けば、毎日その日の暦をお読みいただけます。</li>
           <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
           <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
           <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
@@ -250,7 +250,10 @@
         rs.length ? `今日は${rs.map((r) => r.short).join("／")}` : "";
       document.getElementById("today-info").innerHTML =
         `<div class="info-row"><span class="k">旧暦</span><span>${esc(d.kyureki)}</span></div>` +
-        `<div class="info-row"><span class="k">日の干支</span><span>${esc(d.kanshi)}</span></div>` +
+        (d.kanshi_info
+          ? `<div class="info-row"><span class="k">日の干支</span><span class="v">${esc(d.kanshi_info.name)}</span><span>（${esc(d.kanshi_info.yomi)}）</span>` +
+            `<div class="rk-desc">${esc(d.kanshi_info.desc)}${esc(d.kanshi_info.note)}</div></div>`
+          : `<div class="info-row"><span class="k">日の干支</span><span>${esc(d.kanshi)}</span></div>`) +
         `<div class="info-row"><span class="k">六曜</span><span class="v">${esc(d.rokuyo.name)}</span><span>（${esc(d.rokuyo.yomi)}）</span>` +
         `<div class="rk-desc">${esc(d.rokuyo.timing)}　${esc(d.rokuyo.desc)}</div></div>` +
         `<div class="info-row"><span class="k">正午月齢</span><span class="moon-ic">${moonSvg(d.moon_age)}</span>` +
