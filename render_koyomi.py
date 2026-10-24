@@ -171,6 +171,7 @@ def get_full_data(target_date: date, dbs: dict) -> dict:
         "weekday": weekday,
         "gregorian_label": f"{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）",
         "kanshi": cal["kanshi"],
+        "kanshi_info": ce.kanshi_info(target_date),   # 干支の読み・説明(サイトの「日の干支」の欄用)
         "kyureki": f"{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日",
         "kyureki_month_num": ky["kyureki_month"],
         "kyureki_month_name": month_info.get("name", ""),
@@ -250,7 +251,9 @@ def render_text(data: dict, city_id: str = DEFAULT_CITY_ID) -> str:
     o.append("📅 今日の暦情報")
     o.append(f"西暦：{data['gregorian_label']}")
     o.append(f"旧暦：{data['kyureki']}（{data['moon_phase_name']}）")
-    o.append(f"日の干支：{data['kanshi']}")
+    k = data["kanshi_info"]
+    o.append(f"日の干支：{k['name']}（{k['yomi']}）")
+    o.append(f"　{k['desc']}{k['note']}")
     r = data["rokuyo"]
     o.append(f"六曜：{r['name']}（{r['yomi']}）― {r['timing']}")
     o.append(f"　{r['desc']}")

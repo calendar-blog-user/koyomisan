@@ -127,6 +127,18 @@ report("社日 公表値20件(2016〜2026)", ok)
 from koyomi_engine import compute_kyuureki
 report("日の干支 2000-01-01=戊午", ce.kanshi_name(date(2000, 1, 1)) == "戊午")
 report("日の干支 2026-09-26=癸卯(第三者サイト)", ce.kanshi_name(date(2026, 9, 26)) == "癸卯")
+
+# 日の干支の説明(読み・五行・動物)
+_YOMI = {"甲子": "きのえね", "乙丑": "きのとうし", "丙寅": "ひのえとら", "丁卯": "ひのとう", "戊辰": "つちのえたつ",
+         "己巳": "つちのとみ", "庚午": "かのえうま", "辛未": "かのとひつじ", "壬申": "みずのえさる",
+         "癸酉": "みずのととり", "甲戌": "きのえいぬ", "乙亥": "きのとい", "癸亥": "みずのとい", "辛酉": "かのととり"}
+_ki = {ce.kanshi_info(date(2026, 1, 1) + timedelta(days=k))["name"]: ce.kanshi_info(date(2026, 1, 1) + timedelta(days=k))
+       for k in range(60)}
+report("日の干支の説明: 60日で60通りすべてに、読みと説明がある", len(_ki) == 60 and all(v["yomi"] and v["desc"] and v["note"] for v in _ki.values()))
+report("日の干支の読み: 代表14通りが、標準の読みと一致する", all(_ki[k]["yomi"] == v for k, v in _YOMI.items()))
+_k = ce.kanshi_info(date(2026, 10, 22))
+report("日の干支の説明: 己巳の日は、「己」(つちのと・土・陰)と「巳」(み・へび)になる",
+       _k["name"] == "己巳" and "「己」（つちのと）は五行の土で陰" in _k["desc"] and "「巳」（み）は十二支のへび" in _k["desc"])
 k = compute_kyuureki(date(2026, 9, 26))
 report("六曜 2026-09-26(旧8/16)=大安(第三者サイト)", ce.rokuyo_name(k["kyureki_month"], k["kyureki_day"]) == "大安")
 k = compute_kyuureki(date(2025, 1, 29))
@@ -211,7 +223,7 @@ report(f"昼の長さ(東京) 暦要項2026・2027年 {len(rows)}日: 全日±1�
 # =====================================================================
 # 追加: 通知のタイトル・本文(「今日は何の日だから通知しているか」が分かるか)
 # =====================================================================
-from render_koyomi import build_message, build_reasons, get_full_data, load_databases
+from render_koyomi import build_message, build_reasons, get_full_data, load_databases, render_text
 import calendar_data as cd
 _dbs = load_databases()
 _fd_cache = {}
@@ -244,6 +256,14 @@ TITLE_CASES = {   # 日付: (期待するタイトル, 本文に含まれるべ�
     (2026, 5, 6): ("今日は「振替休日」（休日）", ["■休日「振替休日」"]),
     (2026, 1, 1): ("今日は「元日」（国民の祝日） ほか1件", ["■国民の祝日「元日」", "■重要な祭日「歳旦祭」"]),
 }
+report("日の干支の説明: 酉は「にわとり」、五行の水・火・木・金も正しい",
+       cd.BRANCHES_INFO["酉"][1] == "にわとり"
+       and [cd.STEMS_INFO[k][1] for k in "甲乙丙丁戊己庚辛壬癸"] == list("木木火火土土金金水水")
+       and [cd.STEMS_INFO[k][2] for k in "甲乙丙丁戊己庚辛壬癸"] == list("陽陰陽陰陽陰陽陰陽陰"))
+_fd1 = get_full_data(date(2026, 10, 22), _dbs)
+report("サイトのデータに、日の干支の説明(kanshi_info)が入り、従来の kanshi も残っている",
+       _fd1["kanshi"] == "己巳" and _fd1["kanshi_info"]["name"] == "己巳" and "つちのとみ" in render_text(_fd1))
+
 _set_extra(False)   # 従来のきっかけ(雑節・選日・一粒万倍日を除く)だけで確かめる
 for (y, m, dd), (title, words) in TITLE_CASES.items():
     fd, (t, b) = _msg(y, m, dd)

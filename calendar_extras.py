@@ -35,6 +35,21 @@ def kanshi_name(d: date) -> str:
     return STEMS[i % 10] + BRANCHES[i % 12]
 
 
+def kanshi_info(d: date) -> dict:
+    """その日の干支と、サイトに出す説明(読み・十干の五行と陰陽・十二支の動物)"""
+    i = kanshi_index(d)
+    stem, branch = STEMS[i % 10], BRANCHES[i % 12]
+    stem_yomi, gogyo, inyo = cd.STEMS_INFO[stem]
+    branch_yomi, animal = cd.BRANCHES_INFO[branch]
+    return {
+        "name": stem + branch,
+        "yomi": stem_yomi + branch_yomi,
+        "desc": cd.KANSHI_DESC.format(stem=stem, stem_yomi=stem_yomi, gogyo=gogyo, inyo=inyo,
+                                      branch=branch, branch_yomi=branch_yomi, animal=animal),
+        "note": cd.KANSHI_NOTE,
+    }
+
+
 def day_branch(d: date) -> str:
     return BRANCHES[kanshi_index(d) % 12]
 
