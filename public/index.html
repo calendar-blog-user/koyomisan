@@ -132,7 +132,7 @@
         </div>
         <dl class="sunmoon-grid" id="sunmoon-grid"></dl>
         <p class="sunmoon-length" id="sunmoon-length"></p>
-        <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。<a class="more" href="guide/nisshutsu.html">くわしく ›</a></p>
+        <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。<a class="more" href="guide/nisshutsu.html">詳細 ›</a></p>
         <p class="city-status" id="city-status"></p>
       </section>
 
@@ -173,7 +173,7 @@
           <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
           <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
           <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
-          <li>六曜・日の干支・九星・選日・雑節など、掲載している用語の解説は、<a href="guide/">用語の解説</a>にまとめています。各項目の「くわしく ›」からも開けます。</li>
+          <li>六曜・日の干支・九星・選日・雑節など、掲載している用語の解説は、<a href="guide/">用語の解説</a>にまとめています。各項目の「詳細 ›」からも開けます。</li>
         </ol>
       </section>
 
@@ -242,8 +242,8 @@
       return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#1F3350"/>` +
         `<path d="M${c} ${c - r}A${r} ${r} 0 0 1 ${c} ${c + r}A${rx} ${r} 0 0 ${sweep} ${c} ${c - r}Z" fill="#F6E7B8"${flip}/></svg>`;
     }
-    // 用語の解説ページ(guide/)への「くわしく ›」リンク。項目の名前が、そのまま見出しのidになっている
-    const MORE = "くわしく ›";
+    // 用語の解説ページ(guide/)への「詳細 ›」リンク。項目の名前が、そのまま見出しのidになっている
+    const MORE = "詳細 ›";
     const gl = (page, id, text = MORE) => `<a class="more" href="guide/${page}.html#${encodeURIComponent(id)}">${text}</a>`;
     const GUIDE_PAGE = { "国民の祝日": "shukujitsu", "祝日": "shukujitsu", "振替休日": "shukujitsu", "国民の休日": "shukujitsu",
                          "重要な祭日": "saijitsu", "年中行事": "nenjugyoji", "記念日": "kinenbi", "雑節": "zassetsu", "選日": "senjitsu" };
