@@ -51,7 +51,9 @@
   .tier .n small { font-size:1.02rem; color:rgba(31,51,80,.6); margin-left:.4rem; }
   .tier .d { font-size:.95rem; color:rgba(31,51,80,.78); }
   .month-note { font-size:.95rem; color:rgba(31,51,80,.8); margin-top:1rem; padding-top:.9rem; border-top:1px dashed var(--line); white-space:pre-line; }
-  .sun-card { background:#E8F0F3; }
+  .more { font-size:.88rem; color:var(--accent); text-decoration:none; white-space:nowrap; margin-left:.4rem; }
+  .more:hover { text-decoration:underline; }
+  .info-row .rk-desc.sub { padding-top:0; font-size:.88rem; color:rgba(31,51,80,.62); }
   .sunmoon-head { margin-bottom:.8rem; }
   .sunmoon-head select { font:inherit; font-size:1rem; padding:.4rem .6rem; max-width:100%; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; }
   .sunmoon-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.8rem .6rem; margin:0; }
@@ -130,7 +132,7 @@
         </div>
         <dl class="sunmoon-grid" id="sunmoon-grid"></dl>
         <p class="sunmoon-length" id="sunmoon-length"></p>
-        <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。</p>
+        <p class="sunmoon-note">時刻は日本時間です。国立天文台の公表値と、1分程度の差が出ることがあります。<a class="more" href="guide/nisshutsu.html">くわしく ›</a></p>
         <p class="city-status" id="city-status"></p>
       </section>
 
@@ -171,6 +173,7 @@
           <li>日の出・日の入り・月の出入りの時刻は、「地点」で選んだ都市（政令指定都市と東京）のものです。通知にも、選んだ都市の時刻が添えられます。</li>
           <li>ホーム画面に追加すると、アプリのようにワンタップで開けます（ブラウザの共有メニュー、または「⋮」メニューから「ホーム画面に追加」）。</li>
           <li>アカウント登録は必要ありません。通知が不要になったら、通知を登録した端末では、上の「通知を解除する」からいつでも解除できます（端末の通知設定からオフにすることもできます）。</li>
+          <li>六曜・日の干支・九星・選日・雑節など、掲載している用語の解説は、<a href="guide/">用語の解説</a>にまとめています。各項目の「くわしく ›」からも開けます。</li>
         </ol>
       </section>
 
@@ -218,7 +221,9 @@
 
     // 祝日・祭日・年中行事・記念日・雑節・選日の1件分
     function itemHtml(it, tag) {
-      return `<p><span class="memorial-name">■ ${esc(it.name)}</span><span class="tag">${esc(tag)}</span><br>${esc(it.desc)}</p>`;
+      const page = it.name === "一粒万倍日" ? "ichiryumanbai" : GUIDE_PAGE[tag];
+      const more = page ? gl(page, it.name) : "";
+      return `<p><span class="memorial-name">■ ${esc(it.name)}</span><span class="tag">${esc(tag)}</span><br>${esc(it.desc)} ${more}</p>`;
     }
 
     function cityName(id) {
@@ -237,6 +242,11 @@
       return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#1F3350"/>` +
         `<path d="M${c} ${c - r}A${r} ${r} 0 0 1 ${c} ${c + r}A${rx} ${r} 0 0 ${sweep} ${c} ${c - r}Z" fill="#F6E7B8"${flip}/></svg>`;
     }
+    // 用語の解説ページ(guide/)への「くわしく ›」リンク。項目の名前が、そのまま見出しのidになっている
+    const MORE = "くわしく ›";
+    const gl = (page, id, text = MORE) => `<a class="more" href="guide/${page}.html#${encodeURIComponent(id)}">${text}</a>`;
+    const GUIDE_PAGE = { "国民の祝日": "shukujitsu", "祝日": "shukujitsu", "振替休日": "shukujitsu", "国民の休日": "shukujitsu",
+                         "重要な祭日": "saijitsu", "年中行事": "nenjugyoji", "記念日": "kinenbi", "雑節": "zassetsu", "選日": "senjitsu" };
     const firstSentence = (t) => { const i = (t || "").indexOf("。"); return i >= 0 ? t.slice(0, i + 1) : (t || ""); };
 
     // ---- 今日の暦カード(地点によって変わる部分は、日の出入り・月の出入りの表) ----
@@ -248,21 +258,31 @@
         `<span class="date-title">${esc(d.gregorian_label)}</span>` + (rs.length ? `<span class="badge">${esc(rs[0].name)}</span>` : "");
       document.getElementById("today-reasons").textContent =
         rs.length ? `今日は${rs.map((r) => r.short).join("／")}` : "";
+      const ky = d.kyusei, ki = d.kanshi_info, td = d.tide;
       document.getElementById("today-info").innerHTML =
-        `<div class="info-row"><span class="k">旧暦</span><span>${esc(d.kyureki)}</span></div>` +
-        (d.kanshi_info
-          ? `<div class="info-row"><span class="k">日の干支</span><span class="v">${esc(d.kanshi_info.name)}</span><span>（${esc(d.kanshi_info.yomi)}）</span>` +
-            `<div class="rk-desc">${esc(d.kanshi_info.desc)}${esc(d.kanshi_info.note)}</div></div>`
-          : `<div class="info-row"><span class="k">日の干支</span><span>${esc(d.kanshi)}</span></div>`) +
+        (d.wareki && d.wareki.label
+          ? `<div class="info-row"><span class="k">和暦</span><span>${esc(d.wareki.label)}</span>${gl("wareki", d.wareki.era)}</div>` : "") +
+        `<div class="info-row"><span class="k">旧暦</span><span>${esc(d.kyureki)}</span>${d.kyureki_month_name ? gl("kyureki", d.kyureki_month_name) : ""}</div>` +
         `<div class="info-row"><span class="k">六曜</span><span class="v">${esc(d.rokuyo.name)}</span><span>（${esc(d.rokuyo.yomi)}）</span>` +
-        `<div class="rk-desc">${esc(d.rokuyo.timing)}　${esc(d.rokuyo.desc)}</div></div>` +
+        `<div class="rk-desc">${esc(d.rokuyo.timing)}　${esc(d.rokuyo.desc)} ${gl("rokuyo", d.rokuyo.name)}</div></div>` +
+        (ki
+          ? `<div class="info-row"><span class="k">日の干支</span><span class="v">${esc(ki.name)}</span><span>（${esc(ki.yomi)}）</span>` +
+            `<div class="rk-desc">${esc(ki.desc)} ${gl("kanshi", ki.name)}</div></div>`
+          : `<div class="info-row"><span class="k">日の干支</span><span>${esc(d.kanshi)}</span></div>`) +
+        (ky
+          ? `<div class="info-row"><span class="k">九星</span><span class="v">${esc(ky.day.name)}</span><span>（${esc(ky.day.yomi)}）</span>` +
+            `<div class="rk-desc">${esc(ky.day.desc)} ${gl("kyusei", ky.day.name)}</div>` +
+            `<div class="rk-desc sub">年の九星：${esc(ky.year.name)}　月の九星：${esc(ky.month.name)}</div></div>` : "") +
         `<div class="info-row"><span class="k">正午月齢</span><span class="moon-ic">${moonSvg(d.moon_age)}</span>` +
-        `<span class="v">${esc(d.moon_age_label)}</span><span>（${esc(d.moon_phase_name)}）</span></div>`;
+        `<span class="v">${esc(d.moon_age_label)}</span><span>（${esc(d.moon_phase_name)}）</span>${gl("getsurei", d.moon_phase_name)}</div>` +
+        (td
+          ? `<div class="info-row"><span class="k">潮汐</span><span class="v">${esc(td.name)}</span><span>（${esc(td.yomi)}）</span>` +
+            `<div class="rk-desc">${esc(td.desc)} ${gl("chousei", td.name)}</div></div>` : "");
       document.getElementById("today-tiers").innerHTML =
         `<div class="tier"><div class="k">二十四節気</div><div class="n">${esc(d.sekki_name)}<small>（${esc(d.sekki_yomi)}）</small></div>` +
-        `<div class="d">${esc(firstSentence(d.sekki_description))}</div></div>` +
+        `<div class="d">${esc(firstSentence(d.sekki_description))} ${gl("sekki", d.sekki_name)}</div></div>` +
         `<div class="tier"><div class="k">七十二候</div><div class="n">${esc(d.kou_name)}<small>（${esc(d.kou_yomi)}・${esc(d.kou_label)}）</small></div>` +
-        `<div class="d">${esc(firstSentence(d.season_flow))}</div></div>`;
+        `<div class="d">${esc(firstSentence(d.season_flow))} ${gl("kou", d.kou_name)}</div></div>`;
 
       const sm = d.sun_moon[currentCity];
       const cells = [["🌅 日の出", "sunrise"], ["🌇 日の入り", "sunset"], ["🌙 月の出", "moonrise"],
@@ -275,7 +295,7 @@
       const items = ((d.astro && d.astro.items) || []).filter((it) => it.lines && it.lines.length);
       document.getElementById("astro-body").innerHTML =
         (tags.length ? `<p class="astro-tags">今日：${esc(tags.join("／"))}</p>` : "") +
-        items.map((it) => `<p class="astro-sub">${esc(it.title)}</p><ul class="astro-list">${it.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`).join("");
+        items.map((it) => `<p class="astro-sub">${esc(it.title)} ${gl("tenmon", it.title)}</p><ul class="astro-list">${it.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`).join("");
       if (d.kyureki_month_name) {
         const monthLine = `旧暦${d.is_leap_month ? "閏" : ""}${d.kyureki_month_num}月は「${d.kyureki_month_name}（${d.kyureki_month_yomi}）」。${d.kyureki_month_description}`;
         document.getElementById("today-month-note").textContent =
