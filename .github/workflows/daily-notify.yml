@@ -33,6 +33,12 @@ jobs:
       - name: Build site data
         run: python notify_fcm.py build
 
+      # 1') 用語の解説ページ(public/guide)を、最新のデータから作り直す。失敗しても、ほかの処理は続ける
+      #     (ページは、リポジトリにも入っているので、失敗した場合は、前の内容のまま公開される)
+      - name: Build guide pages
+        continue-on-error: true
+        run: python build_guide.py
+
       # 2) サイトを更新する。通知の送信より先に行うので、通知の送信で問題が起きても、サイトの日付は更新される。
       #    公開に失敗しても、通知は送る(continue-on-error)。失敗した事実は、最後のステップで実行全体を失敗にして残す
       - name: Deploy to Firebase Hosting
