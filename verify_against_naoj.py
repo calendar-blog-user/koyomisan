@@ -128,17 +128,46 @@ from koyomi_engine import compute_kyuureki
 report("日の干支 2000-01-01=戊午", ce.kanshi_name(date(2000, 1, 1)) == "戊午")
 report("日の干支 2026-09-26=癸卯(第三者サイト)", ce.kanshi_name(date(2026, 9, 26)) == "癸卯")
 
-# 日の干支の説明(読み・五行・動物)
+# 日の干支の説明(その日の意味: 五行の性質・関係・暦注)
 _YOMI = {"甲子": "きのえね", "乙丑": "きのとうし", "丙寅": "ひのえとら", "丁卯": "ひのとう", "戊辰": "つちのえたつ",
          "己巳": "つちのとみ", "庚午": "かのえうま", "辛未": "かのとひつじ", "壬申": "みずのえさる",
          "癸酉": "みずのととり", "甲戌": "きのえいぬ", "乙亥": "きのとい", "癸亥": "みずのとい", "辛酉": "かのととり"}
-_ki = {ce.kanshi_info(date(2026, 1, 1) + timedelta(days=k))["name"]: ce.kanshi_info(date(2026, 1, 1) + timedelta(days=k))
-       for k in range(60)}
-report("日の干支の説明: 60日で60通りすべてに、読みと説明がある", len(_ki) == 60 and all(v["yomi"] and v["desc"] and v["note"] for v in _ki.values()))
+_ki = {}
+for _k in range(60):
+    _x = ce.kanshi_info(date(2026, 1, 1) + timedelta(days=_k))
+    _ki[_x["name"]] = _x
+report("日の干支の説明: 60日で60通りすべてに、読みと説明と補足がある", len(_ki) == 60 and all(v["yomi"] and v["desc"] and v["note"] for v in _ki.values()))
 report("日の干支の読み: 代表14通りが、標準の読みと一致する", all(_ki[k]["yomi"] == v for k, v in _YOMI.items()))
-_k = ce.kanshi_info(date(2026, 10, 22))
-report("日の干支の説明: 己巳の日は、「己」(つちのと・土・陰)と「巳」(み・へび)になる",
-       _k["name"] == "己巳" and "「己」（つちのと）は五行の土で陰" in _k["desc"] and "「巳」（み）は十二支のへび" in _k["desc"])
+_k = _ki["己巳"]
+report("日の干支の意味: 己巳(土と火)は、詳しい説明に「火が土を助ける相生」、短い説明に「周りの支えを受けやすい」が出る",
+       _k["detail"].startswith("土（安定・育成）と火（活気・情熱）の性質を持つ日です。") and "火が土を助ける相生" in _k["detail"]
+       and _k["desc"].startswith("周りの支えを受けやすい日です。") and "相生" not in _k["desc"] and _k["relation"] == "支生干")
+_k = _ki["壬寅"]
+report("日の干支の意味: 壬寅(水と木)は、「水が木を生み出す相生」で、農作業に向く日になる(詳しい説明)",
+       "水（知恵・流れ）と木（芽吹き・成長）の性質を持つ日です。" in _k["detail"] and "水が木を生み出す相生" in _k["detail"] and "農作業に向く日" in _k["detail"])
+_k = _ki["甲子"]
+report("日の干支の短い説明: 甲子は、「支えを受けやすい」「農作業や勉強、情報集め」「甲子待」の3文だけになる",
+       _k["desc"] == "周りの支えを受けやすい日です。農作業や勉強、情報集めに向く日といわれます。大黒天をまつる「甲子待（きのえねまち）」の日とされ、福を願う習わしがあります。")
+_SH = {("木", "火"), ("火", "土"), ("土", "金"), ("金", "水"), ("水", "木")}      # 相生(前が後ろを生む)
+_SK = {("木", "土"), ("土", "水"), ("水", "火"), ("火", "金"), ("金", "木")}      # 相剋(前が後ろを抑える)
+def _rel(a, b):
+    return "比和" if a == b else "干生支" if (a, b) in _SH else "支生干" if (b, a) in _SH else "干剋支" if (a, b) in _SK else "支剋干"
+report("日の干支の関係(相生・相剋・比和): 60通りすべて、独立に求めた関係と一致する",
+       all(v["relation"] == _rel(v["stem_gogyo"], v["branch_gogyo"]) for v in _ki.values())
+       and {v["relation"] for v in _ki.values()} == {"比和", "干生支", "支生干", "干剋支", "支剋干"})
+_cnt = {}
+for _v in _ki.values():
+    for _r in _v["rekichu"]:
+        _cnt[_r] = _cnt.get(_r, 0) + 1
+report("日の干支の暦注: 大犯土7日・小犯土7日・間日1日・十方暮10日・天一天上16日・甲子待1日・庚申待1日",
+       _cnt == {"大犯土": 7, "小犯土": 7, "犯土の間日": 1, "十方暮": 10, "天一天上": 16, "甲子待": 1, "庚申待": 1}, str(_cnt))
+report("日の干支の暦注: 範囲の端(庚午・丙子=大犯土、戊寅=小犯土、甲申=小犯土と十方暮、癸巳=十方暮と天一天上、戊申=天一天上、丁丑=間日)",
+       "大犯土" in _ki["庚午"]["rekichu"] and "大犯土" in _ki["丙子"]["rekichu"] and "小犯土" in _ki["戊寅"]["rekichu"]
+       and set(_ki["甲申"]["rekichu"]) == {"小犯土", "十方暮"} and set(_ki["癸巳"]["rekichu"]) == {"十方暮", "天一天上"}
+       and _ki["戊申"]["rekichu"] == ["天一天上"] and _ki["丁丑"]["rekichu"] == ["犯土の間日"] and _ki["己巳"]["rekichu"] == [])
+report("日の干支の暦注: 土いじりを慎む犯土の日は、農作業などを勧める文を出さず、暦注の文を出す(短い・詳しい説明とも)",
+       all(("向く日といわれます" not in v[k]) and ("土いじりは慎む" in v[k]) for v in _ki.values() if set(v["rekichu"]) & {"大犯土", "小犯土"} for k in ("desc", "detail"))
+       and all("向く日といわれます" in v["desc"] or "向くといわれます" in v["desc"] for v in _ki.values() if not (set(v["rekichu"]) & {"大犯土", "小犯土"})))
 k = compute_kyuureki(date(2026, 9, 26))
 report("六曜 2026-09-26(旧8/16)=大安(第三者サイト)", ce.rokuyo_name(k["kyureki_month"], k["kyureki_day"]) == "大安")
 k = compute_kyuureki(date(2025, 1, 29))
@@ -256,13 +285,117 @@ TITLE_CASES = {   # 日付: (期待するタイトル, 本文に含まれるべ�
     (2026, 5, 6): ("今日は「振替休日」（休日）", ["■休日「振替休日」"]),
     (2026, 1, 1): ("今日は「元日」（国民の祝日） ほか1件", ["■国民の祝日「元日」", "■重要な祭日「歳旦祭」"]),
 }
-report("日の干支の説明: 酉は「にわとり」、五行の水・火・木・金も正しい",
-       cd.BRANCHES_INFO["酉"][1] == "にわとり"
-       and [cd.STEMS_INFO[k][1] for k in "甲乙丙丁戊己庚辛壬癸"] == list("木木火火土土金金水水")
-       and [cd.STEMS_INFO[k][2] for k in "甲乙丙丁戊己庚辛壬癸"] == list("陽陰陽陰陽陰陽陰陽陰"))
+report("日の干支: 十干の五行・陰陽、十二支の五行・動物が正しい",
+       [cd.STEMS_INFO[k][1] for k in "甲乙丙丁戊己庚辛壬癸"] == list("木木火火土土金金水水")
+       and [cd.STEMS_INFO[k][2] for k in "甲乙丙丁戊己庚辛壬癸"] == list("陽陰陽陰陽陰陽陰陽陰")
+       and [cd.BRANCHES_INFO[k][2] for k in "子丑寅卯辰巳午未申酉戌亥"] == list("水土木木土火火土金金土水")
+       and cd.BRANCHES_INFO["酉"][1] == "にわとり" and len(cd.KANSHI_USE) == 25)
 _fd1 = get_full_data(date(2026, 10, 22), _dbs)
 report("サイトのデータに、日の干支の説明(kanshi_info)が入り、従来の kanshi も残っている",
        _fd1["kanshi"] == "己巳" and _fd1["kanshi_info"]["name"] == "己巳" and "つちのとみ" in render_text(_fd1))
+
+# =====================================================================
+# 追加: 和暦・九星・潮汐・用語の解説ページ
+# =====================================================================
+import kyusei as _kyu
+import os as _os, re as _re, html as _html, json as _json
+
+# --- 和暦 ---
+report("和暦: 令和元年(2019/5/1)・平成31年(2019/4/30)・平成元年(1989/1/8)・昭和64年(1989/1/7)・令和8年10月24日",
+       ce.wareki_info(date(2019, 5, 1))["label"] == "令和元年5月1日" and ce.wareki_info(date(2019, 4, 30))["label"] == "平成31年4月30日"
+       and ce.wareki_info(date(1989, 1, 8))["label"] == "平成元年1月8日" and ce.wareki_info(date(1989, 1, 7))["label"] == "昭和64年1月7日"
+       and ce.wareki_info(date(2026, 10, 24))["label"] == "令和8年10月24日")
+
+# --- 九星: 2026年の1年分を、公開されている日家九星の一覧(暦注カレンダー rekichu.com)の構造と照合 ---
+#   一覧の構造: 1/1=三碧から6/18=九紫まで1日ずつ進み(陽遁)、6/19=九紫から12/15=一白まで1日ずつ戻り(陰遁)、
+#   12/16=一白から再び進む(陽遁)。切り替わる日(6/18・6/19、12/15・12/16)は、同じ星が2日続く
+def _kyusei_expected(d):
+    if d <= date(2026, 6, 18):
+        return ((d - date(2026, 1, 1)).days + 2) % 9 + 1
+    if d <= date(2026, 12, 15):
+        return 9 - ((d - date(2026, 6, 19)).days % 9)
+    return ((d - date(2026, 12, 16)).days % 9) + 1
+_bad = [d0 for d0 in (date(2026, 1, 1) + timedelta(days=i) for i in range(365)) if _kyu.day_star_number(d0) != _kyusei_expected(d0)]
+report("日の九星: 2026年の365日すべてが、公開されている日家九星の一覧と一致する", not _bad, str(_bad[:3]))
+_pts = {(2026, 10, 1): 4, (2026, 10, 2): 3, (2026, 10, 3): 2, (2026, 10, 22): 1, (2026, 10, 23): 9, (2026, 10, 24): 8, (2026, 12, 31): 7}
+report("日の九星: 一覧に載っている10月1〜3日・22〜24日、12月31日の値と一致する", all(_kyu.day_star_number(date(*k)) == v for k, v in _pts.items()))
+_ym = [((2026, 1, 1), 2, 1), ((2026, 1, 5), 2, 9), ((2026, 2, 3), 2, 9), ((2026, 2, 4), 1, 8), ((2026, 3, 5), 1, 7), ((2026, 5, 5), 1, 5),
+       ((2026, 6, 6), 1, 4), ((2026, 10, 7), 1, 1), ((2026, 10, 8), 1, 9), ((2026, 11, 7), 1, 8), ((2026, 12, 7), 1, 7), ((2026, 12, 31), 1, 7)]
+report("年の九星・月の九星: 2026年の12か所(立春・節入りの前後を含む)が、公開されている一覧と一致する",
+       all((_kyu.year_star_number(date(*k)), _kyu.month_star_number(date(*k))) == (y, m) for k, y, m in _ym))
+report("年の九星: 2000年=九紫・2024年=三碧・2025年=二黒・2026年=一白(立春以降)",
+       [_kyu.year_star_number(date(y, 6, 1)) for y in (2000, 2024, 2025, 2026)] == [9, 3, 2, 1])
+_ki2 = _kyu.kyusei_info(date(2026, 10, 24))
+report("九星の情報: 2026/10/24=日:八白土星・月:九紫火星・年:一白水星(陰遁)",
+       (_ki2["day"]["name"], _ki2["month"]["name"], _ki2["year"]["name"], _ki2["day"]["dun"]) == ("八白土星", "九紫火星", "一白水星", "陰遁") and _ki2["day"]["desc"])
+
+# --- 潮汐(旧暦日による目安) ---
+report("潮汐: 旧暦1〜30日のすべてに潮名があり、1周(15日)の並びが 大潮4・中潮3・小潮3・長潮1・若潮1・中潮3 になっている",
+       sorted(cd.CHOUSEI_BY_KYUREKI_DAY) == list(range(1, 31)) and all(cd.CHOUSEI_BY_KYUREKI_DAY[i] in cd.CHOUSEI for i in range(1, 31))
+       and [cd.CHOUSEI_BY_KYUREKI_DAY[i] for i in range(1, 16)] == ["大潮"] * 3 + ["中潮"] * 3 + ["小潮"] * 3 + ["長潮", "若潮"] + ["中潮"] * 3 + ["大潮"])
+# 海上保安庁の潮汐表(関門海峡海上交通センター掲載の月別表)の潮名55日分(2021〜2025年)。旧暦日の表との一致数を確かめる
+_TIDE = {
+ (2025, 10, 1): "小潮", (2025, 10, 2): "長潮", (2025, 10, 3): "若潮", (2025, 10, 4): "中潮", (2025, 10, 5): "中潮", (2025, 10, 6): "大潮",
+ (2025, 9, 1): "小潮", (2025, 9, 2): "長潮", (2025, 9, 3): "若潮", (2025, 9, 4): "中潮", (2025, 9, 5): "中潮", (2025, 9, 6): "中潮",
+ (2025, 8, 1): "小潮", (2025, 8, 2): "小潮", (2025, 8, 3): "長潮", (2025, 8, 4): "若潮", (2025, 8, 5): "中潮",
+ (2025, 1, 1): "大潮", (2025, 1, 2): "大潮", (2025, 1, 3): "中潮", (2025, 1, 4): "中潮", (2025, 1, 5): "中潮", (2025, 1, 6): "小潮",
+ (2025, 2, 1): "中潮", (2025, 2, 2): "中潮", (2025, 2, 3): "中潮",
+ (2021, 3, 1): "大潮", (2021, 3, 2): "中潮", (2021, 3, 3): "中潮", (2021, 3, 4): "中潮", (2021, 3, 5): "小潮", (2021, 3, 6): "小潮",
+ (2024, 5, 1): "小潮", (2024, 5, 2): "小潮", (2024, 5, 3): "長潮", (2024, 5, 4): "若潮", (2024, 5, 5): "中潮", (2024, 5, 6): "中潮",
+ (2021, 10, 1): "長潮", (2021, 10, 2): "若潮", (2021, 10, 3): "中潮", (2021, 10, 4): "中潮", (2021, 10, 5): "中潮", (2021, 10, 6): "大潮",
+ (2023, 3, 1): "長潮", (2023, 3, 2): "若潮", (2023, 3, 3): "中潮", (2023, 3, 4): "中潮", (2023, 3, 5): "中潮", (2023, 3, 6): "大潮",
+ (2023, 1, 1): "長潮", (2023, 1, 2): "若潮", (2023, 1, 3): "中潮", (2023, 1, 4): "中潮", (2023, 1, 5): "中潮",
+}
+from koyomi_engine import compute_kyuureki as _ck
+_coarse = {"大潮": "大", "中潮": "中", "小潮": "小", "長潮": "小", "若潮": "小"}
+_exact = _near = 0
+for (y_, m_, d_), n_ in _TIDE.items():
+    got = ce.tide_info(_ck(date(y_, m_, d_))["kyureki_day"])["name"]
+    _exact += got == n_
+    _near += _coarse[got] == _coarse[n_]
+report(f"潮汐: 潮汐表の{len(_TIDE)}日のうち、旧暦日の表と一致するのは48日以上(実測 {_exact}日)、大・中・小で見ると52日以上(実測 {_near}日)",
+       len(_TIDE) == 55 and _exact >= 48 and _near >= 52)
+
+# --- 用語の解説ページ(public/guide): サイトに出る名前が、リンク先の見出しidとして、すべてある ---
+_G = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "public", "guide")
+def _ids(page):
+    p = _os.path.join(_G, page + ".html")
+    return {_html.unescape(x) for x in _re.findall(r'<section class="item" id="([^"]+)"', open(p, encoding="utf-8").read())} if _os.path.exists(p) else set()
+_missing = {}
+def _need(page, names):
+    miss = [n for n in names if n not in _ids(page)]
+    if miss:
+        _missing[page] = miss[:5]
+_need("rokuyo", list(cd.ROKUYO)); _need("kanshi", ce._kanshi_names()); _need("kyusei", [v[0] for v in cd.KYUSEI.values()])
+_need("chousei", list(cd.CHOUSEI)); _need("senjitsu", list(cd.SENJITSU_DESC)); _need("ichiryumanbai", ["一粒万倍日"])
+from koyomi_engine import SEKKI_NAMES as _SN, MOON_PHASE_NAMES as _MP
+_need("sekki", [x[0] for x in _SN]); _need("getsurei", sorted(set(_MP.values())) + ["満ちていく月", "欠けていく月"])
+_need("kou", [_json.loads(l)["kou_name"] for l in open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "kou_content_72.jsonl"), encoding="utf-8") if l.strip()])
+_zs, _ev, _ho, _d = set(), set(), set(), date(2026, 1, 1)
+while _d.year < 2036:
+    _zs |= {x["name"] for x in ce.zassetsu_on(_d)}; _ev |= {x["name"] for x in ce.events_on(_d)}; _ho |= {x["name"] for x in ce.holidays_on(_d)}
+    _d += timedelta(days=1)
+_need("zassetsu", sorted(_zs)); _need("nenjugyoji", sorted(_ev)); _need("shukujitsu", sorted(_ho))
+_need("saijitsu", [n for lst in cd.SAIJITSU_FIXED.values() for n, _ in lst] + [v[0] for v in cd.SAIJITSU_EQUINOX.values()])
+_need("kinenbi", [x["name"] for r in ce._load_fixed_entries().values() for x in r if x.get("category", "記念日") == "記念日"])
+_need("tenmon", ["月の満ち欠け", "日食・月食", "流星群"])
+_need("kyureki", [_json.loads(l)["name"] for l in open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "kyureki_month_names.jsonl"), encoding="utf-8") if l.strip()])
+_need("wareki", [n for n, _ in cd.WAREKI_ERAS])
+report("用語の解説ページ: サイトに出る六曜・干支・九星・潮・選日・雑節・節気・七十二候・月の呼び名・祝日・行事・記念日などの名前が、すべてリンク先の見出しになっている", not _missing, str(_missing))
+_dup = []
+for _f in _os.listdir(_G) if _os.path.isdir(_G) else []:
+    if _f.endswith(".html"):
+        _t = _re.findall(r'<section class="item" id="([^"]+)"', open(_os.path.join(_G, _f), encoding="utf-8").read())
+        if len(_t) != len(set(_t)):
+            _dup.append(_f)
+report("用語の解説ページ: 同じページの中で、見出しのidが重複していない(重複するとリンクがずれる)", not _dup, str(_dup))
+_pages = {f[:-5] for f in _os.listdir(_G) if f.endswith(".html")} if _os.path.isdir(_G) else set()
+_bad_links = []
+for _f in sorted(_pages):
+    for _href in _re.findall(r'href="([a-z]+)\.html', open(_os.path.join(_G, _f + ".html"), encoding="utf-8").read()):
+        if _href not in _pages:
+            _bad_links.append((_f, _href))
+report("用語の解説ページ: ページ間のリンク先がすべて存在する(19ページ)", not _bad_links and len(_pages) == 19, f"{len(_pages)}ページ {_bad_links[:3]}")
 
 _set_extra(False)   # 従来のきっかけ(雑節・選日・一粒万倍日を除く)だけで確かめる
 for (y, m, dd), (title, words) in TITLE_CASES.items():

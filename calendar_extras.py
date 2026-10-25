@@ -35,19 +35,85 @@ def kanshi_name(d: date) -> str:
     return STEMS[i % 10] + BRANCHES[i % 12]
 
 
+def _kanshi_names() -> list:
+    return [STEMS[i % 10] + BRANCHES[i % 12] for i in range(60)]
+
+
+def _in_span(name: str, start: str, end: str) -> bool:
+    """六十干支の並び(甲子=0…癸亥=59)で、start から end まで(end を含む)の間に name があるか"""
+    names = _kanshi_names()
+    i, a, b = names.index(name), names.index(start), names.index(end)
+    return a <= i <= b if a <= b else (i >= a or i <= b)
+
+
+def kanshi_rekichu(name: str) -> list:
+    """その干支の日にあたる暦注の名前(犯土・十方暮・天一天上・甲子待・庚申待)"""
+    return [k for k, (start, end, _) in cd.KANSHI_REKICHU.items() if _in_span(name, start, end)]
+
+
+def kanshi_gogyo_relation(a: str, b: str) -> str:
+    """十干の五行 a と十二支の五行 b の関係: 比和 / 干生支 / 支生干 / 干剋支 / 支剋干"""
+    if a == b:
+        return "比和"
+    if cd.SOSHO[a] == b:
+        return "干生支"
+    if cd.SOSHO[b] == a:
+        return "支生干"
+    if cd.SOKOKU[a] == b:
+        return "干剋支"
+    return "支剋干"
+
+
 def kanshi_info(d: date) -> dict:
-    """その日の干支と、サイトに出す説明(読み・十干の五行と陰陽・十二支の動物)"""
+    """その日の干支と、サイトに出す「その日の意味」
+
+      desc   : 「今日の情報」の欄に出す短い説明(支え・向いていること・暦注)
+      detail : 解説ページに出す詳しい説明(五行の性質・相生相剋・向いていること・暦注)
+      note   : 目安であることの注意書き(解説ページに出す)
+    """
     i = kanshi_index(d)
     stem, branch = STEMS[i % 10], BRANCHES[i % 12]
-    stem_yomi, gogyo, inyo = cd.STEMS_INFO[stem]
-    branch_yomi, animal = cd.BRANCHES_INFO[branch]
+    name = stem + branch
+    stem_yomi, ga, inyo = cd.STEMS_INFO[stem]
+    branch_yomi, animal, gb = cd.BRANCHES_INFO[branch]
+    rekichu = kanshi_rekichu(name)
+    relation = kanshi_gogyo_relation(ga, gb)
+    dozuchi = any(k in rekichu for k in cd.KANSHI_DOZUCHI)   # 土いじりを慎む期間は、農作業などを勧める文を出さない
+
+    if ga == gb:
+        first = f"{ga}（{cd.GOGYO_IMAGE[ga]}）の性質が重なる日です。"
+    else:
+        first = f"{ga}（{cd.GOGYO_IMAGE[ga]}）と{gb}（{cd.GOGYO_IMAGE[gb]}）の性質を持つ日です。"
+    use = [] if dozuchi else [cd.KANSHI_USE[(ga, gb)]]
+    rk = [cd.KANSHI_REKICHU[k][2] for k in rekichu]
     return {
-        "name": stem + branch,
+        "name": name,
         "yomi": stem_yomi + branch_yomi,
-        "desc": cd.KANSHI_DESC.format(stem=stem, stem_yomi=stem_yomi, gogyo=gogyo, inyo=inyo,
-                                      branch=branch, branch_yomi=branch_yomi, animal=animal),
+        "stem_gogyo": ga,
+        "branch_gogyo": gb,
+        "relation": relation,
+        "rekichu": rekichu,
+        "desc": "".join([cd.KANSHI_RELATION_SHORT[relation]] + use + rk),
+        "detail": "".join([first, cd.KANSHI_RELATION[relation].format(a=ga, b=gb)] + use + rk),
         "note": cd.KANSHI_NOTE,
     }
+
+
+def wareki_info(d: date) -> dict:
+    """和暦(令和8年10月24日 のような表記)。元年は「元年」と書く"""
+    for era, start in cd.WAREKI_ERAS:
+        if d >= start:
+            y = d.year - start.year + 1
+            ys = "元" if y == 1 else str(y)
+            return {"era": era, "year": y, "label": f"{era}{ys}年{d.month}月{d.day}日", "year_label": f"{era}{ys}年"}
+    return {"era": "", "year": None, "label": "", "year_label": ""}
+
+
+def tide_info(kyureki_day: int) -> dict:
+    """潮回りの名前(旧暦の日にちから決める目安)"""
+    name = cd.CHOUSEI_BY_KYUREKI_DAY[kyureki_day]
+    yomi, desc = cd.CHOUSEI[name]
+    return {"name": name, "yomi": yomi, "desc": desc, "note": cd.CHOUSEI_NOTE}
 
 
 def day_branch(d: date) -> str:

@@ -13,6 +13,7 @@ from datetime import date, timedelta
 import astro_events as ae
 import calendar_data as cd
 import calendar_extras as ce
+import kyusei as kyu
 from koyomi_engine import get_sekki_and_kou, moon_age, compute_kyuureki, moon_phase_name
 from sunmoon import CITIES, CITY_BY_ID, DEFAULT_CITY_ID, sun_moon_times, moon_tonight_text, day_length_fields
 
@@ -172,6 +173,9 @@ def get_full_data(target_date: date, dbs: dict) -> dict:
         "gregorian_label": f"{target_date.year}年{target_date.month}月{target_date.day}日（{weekday}）",
         "kanshi": cal["kanshi"],
         "kanshi_info": ce.kanshi_info(target_date),   # 干支の読み・説明(サイトの「日の干支」の欄用)
+        "wareki": ce.wareki_info(target_date),        # 和暦
+        "kyusei": kyu.kyusei_info(target_date),       # 九星気学(日・月・年)
+        "tide": ce.tide_info(ky["kyureki_day"]),      # 潮回り(大潮・中潮など)
         "kyureki": f"{leap}{ky['kyureki_month']}月{ky['kyureki_day']}日",
         "kyureki_month_num": ky["kyureki_month"],
         "kyureki_month_name": month_info.get("name", ""),
@@ -253,7 +257,12 @@ def render_text(data: dict, city_id: str = DEFAULT_CITY_ID) -> str:
     o.append(f"旧暦：{data['kyureki']}（{data['moon_phase_name']}）")
     k = data["kanshi_info"]
     o.append(f"日の干支：{k['name']}（{k['yomi']}）")
-    o.append(f"　{k['desc']}{k['note']}")
+    o.append(f"　{k['desc']}")
+    kd = data["kyusei"]
+    o.append(f"九星：{kd['day']['name']}（{kd['day']['yomi']}）　年：{kd['year']['name']}／月：{kd['month']['name']}")
+    o.append(f"　{kd['day']['desc']}")
+    o.append(f"和暦：{data['wareki']['label']}")
+    o.append(f"潮回り：{data['tide']['name']}（{data['tide']['yomi']}）　{data['tide']['desc']}")
     r = data["rokuyo"]
     o.append(f"六曜：{r['name']}（{r['yomi']}）― {r['timing']}")
     o.append(f"　{r['desc']}")
