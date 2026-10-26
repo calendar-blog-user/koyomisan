@@ -80,12 +80,13 @@ def first_sentence(text: str, limit: int = 60, min_len: int = 25) -> str:
 def build_reasons(data: dict) -> list:
     """通知のきっかけ(=今日が何の日か)を、重要な順に並べて返す。
     順番: 国民の祝日 → 二十四節気 → 重要な祭日 → 主要な年中行事 → 雑節 → 天赦日 → 記念日
-          → 七十二候(次候・末候) → 選日(寅の日・巳の日・己巳の日・不成就日) → 一粒万倍日
+          → 七十二候(次候・末候) → 新月・満月 → 選日(寅の日・巳の日・己巳の日・不成就日) → 一粒万倍日
       short : 「文化の日」（国民の祝日）のような短い言い方(タイトル・サイトの見出し用)
       line  : 通知の本文に1行ずつ並べる説明
     雑節・選日・一粒万倍日は、calendar_data.py の NOTIFY_ZASSETSU / NOTIFY_SENJITSU /
     NOTIFY_ICHIRYU_MANBAI で、種類ごとに通知のきっかけにするかどうかを切り替えられる。
-    六曜・天文トピックスは、通知のきっかけにしない。"""
+    新月・満月は、calendar_data.py の NOTIFY_MOON_PHASE で、種類ごとに切り替えられる。
+    六曜と、新月・満月以外の天文トピックスは、通知のきっかけにしない。"""
     items = data["notify_items"]
 
     def item_reason(it):
@@ -120,7 +121,19 @@ def build_reasons(data: dict) -> list:
             kou.append({"kind": "kou", "label": "七十二候", "name": data["kou_name"],
                         "short": f"七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり",
                         "line": f"■七十二候「{data['kou_name']}」（{data['kou_label']}）の始まり：{first_sentence(data['season_flow'], 70)}"})
-    return holidays + sekki + saijitsu + events + zassetsu + tenshanichi + kinenbi + kou + senjitsu_other + ichiryu
+    # 新月・満月(日本時間で、その日のうちに朔・望の瞬間がある日)
+    moon_desc = {
+        "朔": "月が太陽と同じ方向にあり、夜空に月は見えません。旧暦では、新月の日が月の1日です。",
+        "望": "月が太陽の反対側にあり、まるく光ります。日の入りのころに東の空から昇り、夜通し空にあります。",
+    }
+    moon = []
+    for p in data.get("moon_phases", []):
+        if p["kind"] in moon_desc and cd.NOTIFY_MOON_PHASE.get(p["kind"], False):
+            name = p["label"].split("（")[0]   # 「新月」「満月」
+            moon.append({"kind": "moon", "label": "月の満ち欠け", "name": name,
+                         "short": f"「{name}」（月の満ち欠け）",
+                         "line": f"■月の満ち欠け「{name}」：{p['time']}に{p['label']}となります。{moon_desc[p['kind']]}"})
+    return holidays + sekki + saijitsu + events + zassetsu + tenshanichi + kinenbi + kou + moon + senjitsu_other + ichiryu
 
 
 def build_message(data: dict, city_id: str):
@@ -215,6 +228,7 @@ def get_full_data(target_date: date, dbs: dict) -> dict:
         "senjitsu": cal["senjitsu"],
         # 🌕 天文トピックス(月の満ち欠け・日食月食・流星群)
         "astro": ae.astro_summary(target_date),
+        "moon_phases": ae.phases_on(target_date),   # その日に朔・上弦・望・下弦の瞬間があれば、その種類と時刻(通知のきっかけの判定に使う)
         "mythology": c["mythology"],
         "trivia": c["trivia"],
         "food_veg": c["food_veg"],
