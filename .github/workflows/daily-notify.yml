@@ -1,10 +1,6 @@
 name: Daily Koyomi Notification
 
 on:
-  schedule:
-    # 毎朝、日本時間の6:47ごろに実行する(UTC 21:47)。
-    # GitHub Actionsの定期実行は、毎時0分ちょうどに集中して遅れやすいため、少しずらしている。
-    - cron: '47 21 * * *'
   workflow_dispatch:     # 手動実行。「Run workflow」で、テスト通知を送るかどうかを選べる
     inputs:
       test_notification:
