@@ -103,6 +103,7 @@
   footer .presented a { color:var(--accent); text-underline-offset:.25em; }
   footer .copyright { font-size:.8rem; color:rgba(31,51,80,.55); }
 </style>
+<script src="analytics.js"></script>
 </head>
 <body>
   <main class="scroll">
@@ -180,8 +181,8 @@
       <footer>
         <p>登録なし・無料でご利用いただけます</p>
         <p class="updated" id="updated"></p>
-        <p class="presented">Presented by <a href="https://neoearthlife.com/" target="_blank" rel="noopener">地球生活NEO</a></p>
-        <p class="copyright">© 2026 こよみさん</p>
+        <p class="presented">Presented by <a href="https://neoearthlife.com/koyomisan-calendar-app-3534.html" target="_blank" rel="noopener">地球生活NEO</a></p>
+        <p class="copyright">© 2026 こよみさん ／ <a href="help.html#analytics" style="color:inherit">アクセス解析について</a></p>
       </footer>
     </div>
   </main>
@@ -623,6 +624,7 @@
           ua: navigator.userAgent,
         }, { merge: true });
         store.set(SYNCED_KEY, city);
+        if (window.trackEvent) window.trackEvent("notification_subscribe", { city });
         listenForeground();
         refreshUnsubscribeUI();
         statusEl.textContent = `通知の登録が完了しました。七十二候の切り替わりや祝日・祭日・年中行事・記念日に、「${DATA ? cityName(city) : city}」の時刻を添えてお届けします。`;
@@ -652,6 +654,7 @@
         if (sub) await sub.unsubscribe();
         if (await hasPushSubscription()) throw new Error("subscription still exists");
         store.set(SYNCED_KEY, "");
+        if (window.trackEvent) window.trackEvent("notification_unsubscribe");
         btn.disabled = false;
         btn.textContent = "通知を受け取る";
         unsubBtn.hidden = true;
