@@ -88,6 +88,7 @@ li { margin-bottom:.25rem; }
 .top { text-align:center; margin-top:1.6rem; }
 .top a { display:inline-block; background:var(--ink); color:#fff; text-decoration:none; border-radius:999px; padding:.5rem 1.6rem; font-size:.95rem; }
 footer { text-align:center; font-size:.8rem; color:rgba(31,51,80,.55); margin-top:1.4rem; }
+footer a { color:inherit; }
 """
 
 
@@ -134,6 +135,7 @@ def page(slug, title, lead, body, related=()):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="guide.css">
+<script src="../analytics.js"></script>
 </head>
 <body>
 <main class="g">
@@ -143,7 +145,7 @@ def page(slug, title, lead, body, related=()):
 {body}
 {rel}
 <p class="top"><a href="../">今日の暦にもどる</a></p>
-<footer>こよみさん ― Presented by 地球生活NEO</footer>
+<footer>こよみさん ― Presented by <a href="https://neoearthlife.com/koyomisan-calendar-app-3534.html" target="_blank" rel="noopener">地球生活NEO</a></footer>
 </main>
 </body>
 </html>

@@ -202,6 +202,25 @@ def send_all(groups: dict, full_data: dict, click_url: str, test: bool = False) 
     return failed
 
 
+def record_subscriber_stats(today: date) -> None:
+    """通知の登録者数を、Firestoreに記録する(確認は、Firebaseコンソールからだけ。サイトの利用者は読めない)。
+    送信のあと(失効したトークンを削除したあと)の数を数えるので、実際に通知が届く人数に近い。
+      stats/subscribers        … 最新の人数(total と、都市ごとの byCity)
+      stats_daily/<日付>        … その日の人数(推移を見るための記録)
+    ここで失敗しても、通知の送信やサイトの更新には影響させない。"""
+    try:
+        if not firebase_admin._apps:
+            init_firebase()
+        groups = get_subscribers_by_city()
+        by_city = {c: len(t) for c, t in groups.items()}
+        record = {"total": sum(by_city.values()), "byCity": by_city, "updatedAt": firestore.SERVER_TIMESTAMP}
+        db = firestore.client()
+        db.collection("stats").document("subscribers").set(record)
+        db.collection("stats_daily").document(today.isoformat()).set(record)
+    except Exception as e:   # noqa: BLE001
+        print(f"登録者数の記録に失敗しました(通知の送信には影響しません): {type(e).__name__}", file=sys.stderr)
+
+
 def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
     if test:
         print("テスト通知を送ります(通知のきっかけの有無にかかわらず、購読者全員に送信)")
@@ -235,6 +254,8 @@ def main(argv=None):
         return
 
     failed = send_notifications(today, full_data, test=test)
+    if not test:
+        record_subscriber_stats(today)   # 通知のきっかけがない日も、登録者数の記録は毎日行う
     if failed:
         sys.exit(1)   # 失敗した都市があれば、Actionsの実行を失敗にして気づけるようにする(サイトの更新は済んでいる)
 
