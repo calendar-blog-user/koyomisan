@@ -145,7 +145,7 @@ def page(slug, title, lead, body, related=()):
 {body}
 {rel}
 <p class="top"><a href="../">今日の暦にもどる</a></p>
-<footer>こよみさん ― Presented by <a href="https://neoearthlife.com/koyomisan-calendar-app-3534.html" target="_blank" rel="noopener">地球生活NEO</a></footer>
+<footer>こよみさん ― 日本の心を、日々の暮らしに。 運営：<a href="https://japanese-spirit.com/about/" target="_blank" rel="noopener">ひのもと</a>（<a href="https://japanese-spirit.com/" target="_blank" rel="noopener">日本の精神</a>｜<a href="https://www.instagram.com/hinomoto.yaoyorozu/" target="_blank" rel="noopener">Instagram</a>｜<a href="https://ameblo.jp/kotodama-kun/" target="_blank" rel="noopener">ことだまくん</a>） ／ 運営者の個人ブログ：<a href="https://neoearthlife.com/koyomisan-calendar-app-3534.html" target="_blank" rel="noopener">地球生活NEO</a></footer>
 </main>
 </body>
 </html>
