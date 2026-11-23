@@ -6,6 +6,8 @@
       画面はブラウザの日付(日本時間)に合うファイルを読むので、朝の自動実行が遅れたり失敗したりしても、
       数日のあいだは正しい日付の暦が表示される。
   python notify_fcm.py send  : 通知のきっかけがある日だけ、購読者全員にFirebase Cloud Messagingで通知する。
+      通常通知は、同じ日に2回送らない(二重送信防止: 送信記録をFirestoreの notify_log/<日付> に残し、
+      送信済みの日はスキップする。手動で再実行しても、通知が重複しない)。
       購読者が選んだ都市の日の出・日の入り・月の出・月の入りを添える。都市ごとに本文を作り分ける。
       通知のきっかけ: 二十四節気・七十二候の切り替わり／国民の祝日／重要な祭日／主要な年中行事／記念日
                       ／雑節／選日(天赦日・寅の日・巳の日・己巳の日・不成就日)／一粒万倍日／新月・満月
@@ -221,6 +223,49 @@ def record_subscriber_stats(today: date) -> None:
         print(f"登録者数の記録に失敗しました(通知の送信には影響しません): {type(e).__name__}", file=sys.stderr)
 
 
+NOTIFY_LOG_COLLECTION = "notify_log"   # 通常通知の送信記録(二重送信防止用。確認はFirebaseコンソールからだけ)
+SENDING_STALE_MINUTES = 30             # 「送信中」のまま、この分数を超えたら前回の実行は失敗したとみなす
+
+
+def claim_todays_send(today: date) -> bool:
+    """今日の通常通知の「送信権」を取る。すでに送信済み(または別の実行が送信中)なら False を返し、呼び出し側は送信しない。
+    GitHub Actionsを手動で再実行したときなどに、同じ通知が2回届くのを防ぐための仕組み。
+    送信記録は Firestore の notify_log/<日付> に残す。
+    記録の確認・保存に失敗した場合は、通知が止まってしまうほうが困るため、送信を許可する(警告だけ出す)。"""
+    try:
+        db = firestore.client()
+        ref = db.collection(NOTIFY_LOG_COLLECTION).document(today.isoformat())
+        snap = ref.get()
+        if snap.exists:
+            d = snap.to_dict() or {}
+            if d.get("status") == "sent":
+                return False
+            started = d.get("startedAt")
+            if d.get("status") == "sending" and isinstance(started, datetime):
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=JST)
+                if datetime.now(JST) - started < timedelta(minutes=SENDING_STALE_MINUTES):
+                    return False   # 別の実行が送信中(または直前に開始した)とみなす
+        ref.set({"status": "sending", "startedAt": datetime.now(JST)})
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"送信記録の確認に失敗しました(二重送信防止なしで送信します): {type(e).__name__}: {e}", file=sys.stderr)
+        return True
+
+
+def finish_todays_send(today: date, success: bool) -> None:
+    """送信の結果を記録する。全都市に送れたときだけ「送信済み(sent)」にし、
+    失敗した都市があれば再実行で再送できるよう「failed」のままにする。
+    ここで失敗しても、通知の送信結果には影響させない。"""
+    try:
+        db = firestore.client()
+        db.collection(NOTIFY_LOG_COLLECTION).document(today.isoformat()).set(
+            {"status": "sent" if success else "failed",
+             "finishedAt": datetime.now(JST)}, merge=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"送信記録の保存に失敗しました(次回の実行で二重送信になる可能性があります): {type(e).__name__}: {e}", file=sys.stderr)
+
+
 def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
     if test:
         print("テスト通知を送ります(通知のきっかけの有無にかかわらず、購読者全員に送信)")
@@ -233,7 +278,12 @@ def send_notifications(today: date, full_data: dict, test: bool = False) -> int:
         return 0
     print("通知のきっかけ: " + "、".join(r["short"] for r in reasons))
     init_firebase()
-    return send_all(get_subscribers_by_city(), full_data, resolve_site_url())
+    if not claim_todays_send(today):
+        print(f"{today} の通常通知は送信済みのため、二重送信防止により今回は送信しません。")
+        return 0
+    failed = send_all(get_subscribers_by_city(), full_data, resolve_site_url())
+    finish_todays_send(today, success=(failed == 0))
+    return failed
 
 
 def main(argv=None):
